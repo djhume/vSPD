@@ -6,7 +6,7 @@
 * Source:               https://github.com/ElectricityAuthority/vSPD
 *                       http://reports.ea.govt.nz/EMIIntro.htm
 * Contact:              emi@ea.govt.nz
-* Last modified on:     6 December 2013
+* Last modified on:     29 January 2014 (DJ Hume)
 *=====================================================================================
 
 $ontext
@@ -18,6 +18,7 @@ $ontext
   5. Input data overrides - declare and apply (include vSPDoverrides.gms)
   6. FTR rental - vSPD setting to calculate branch and constraint participation loading
   7. Initialise constraint violation penalties (CVPs)
+  7b.Pivotal analysis - vSPD setting to calculate IRDE
   8. The vSPD solve loop
      a) Reset all sets, parameters and variables before proceeding with the next study trade period
      b) Initialise current trade period and model data for the current trade period
@@ -45,13 +46,11 @@ Aliases to be aware of:
   i_genericConstraint = gnrcCstr
 $offtext
 
-
 * Include paths, settings and case name files
 $include vSPDpaths.inc
 $include vSPDsettings.inc
 $include vSPDcase.inc
 $include FTRrun.inc
-
 
 * Perform integrity checks on operating mode (opMode) and trade period reporting (tradePeriodReports) switches.
 * Notes: - Operating mode: 1 --> DW mode; -1 --> Audit mode; all else implies usual vSPD mode.
@@ -62,7 +61,6 @@ if(tradePeriodReports < 0 or tradePeriodReports > 1, tradePeriodReports = 1 ) ;
 $if %calcFTRrentals%==1 opMode = 0
 if( (opMode = -1) or (opMode = 1), tradePeriodReports = 1 ) ;
 *Display opMode, tradePeriodReports ;
-
 
 * Update the runlog file
 File runlog "Write to a report"      /  "%outputPath%\%runName%\%runName%_RunLog.txt" / ; runlog.lw = 0 ; runlog.ap = 1 ;
@@ -89,7 +87,6 @@ option limrow = 0 ;
 
 * Allow empty data set declaration
 $onempty
-
 
 *=====================================================================================
 * 1. Declare symbols and initialise some of them
@@ -356,8 +353,6 @@ Parameters
 * Declare a temporary file
 File temp ;
 
-
-
 *=====================================================================================
 * 2. Load data from GDX file
 *=====================================================================================
@@ -388,8 +383,6 @@ $load i_type1MixedConstraintHVDClineWeight i_tradePeriodType1MixedConstraintRHSP
 $load i_tradePeriodGenericEnergyOfferConstraintFactors i_tradePeriodGenericReserveOfferConstraintFactors i_tradePeriodGenericEnergyBidConstraintFactors
 $load i_tradePeriodGenericILReserveBidConstraintFactors i_tradePeriodGenericBranchConstraintFactors i_tradePeriodGenericConstraintRHS
 $gdxin
-
-
 
 *=====================================================================================
 * 3. Manage model and data compatability
@@ -501,8 +494,6 @@ i_useBusNetworkModel(tp) = 1 $ { ( inputGDXGDate >= MSPchangeOverGDXGDate ) and
                                  sum[ b, i_tradePeriodBusElectricalIsland(tp,b) ]
                                } ;
 
-
-
 *=====================================================================================
 * 4. Establish which trading periods are to be solved
 *=====================================================================================
@@ -524,8 +515,6 @@ i_studyTradePeriod(tp) = 0 ;
 i_studyTradePeriod(tp) $ sum[ tempPeriod, diag(tp,tempPeriod)] = 1 ;
 i_studyTradePeriod(tp) $ sum[ tempPeriod, diag(tempPeriod,'All')] = 1 ;
 
-
-
 *=====================================================================================
 * 5. Input data overrides - declare and apply (include vSPDoverrides.gms)
 *=====================================================================================
@@ -546,8 +535,6 @@ $ontext
 $offtext
 
 $if not %suppressOverrides%==1 $include vSPDoverrides.gms
-
-
 
 *=====================================================================================
 * 6. FTR rental - vSPD setting to calculate branch and constraint participation loading
@@ -682,8 +669,6 @@ $offmulti
 * End clause 7 FTR initialisation
 $label FTR_Clause7_End
 
-
-
 *=====================================================================================
 * 7. Initialise constraint violation penalties (CVPs)
 *=====================================================================================
@@ -777,10 +762,9 @@ numTradePeriods = card(tp) ;
 * 7b. Pivot analysis
 *=====================================================================================
 
-*$if %PivotAnalysis%==1 $include "%ProgramPath%Pivot\vSPDPivotIR.inc"
+$if %PivotAnalysis%==1 $include "%ProgramPath%..\Override\Pivot\vSPDPivotIR.inc"
 *Residual demand analysis
-*$if %PivotAnalysis%==-1 $include "%ProgramPath%IRDE\vSPDResidualDemand.inc"
-
+$if %PivotAnalysis%==-1 $include "%ProgramPath%..\Override\IRDE\vSPDResidualDemand.inc"
 
 *=====================================================================================
 * 8. The vSPD solve loop
@@ -4029,11 +4013,10 @@ if( (FTRflag = 0),
                            o_FIRcleared_TP, o_SIRcleared_TP ;
         );
 
-        *Pivot analysis
-*+++++++++++++++++++++++++++++Pivot analysis++++++++++++++++++++++++++++++++++++
-        $if %PivotAnalysis%==1 $include "%ProgramPath%Pivot\vSPDPivotGDXout.inc"
-*+++++++++++++++++++++++++++++Residual demand analysis++++++++++++++++++++++++++
-        $if %PivotAnalysis%==-1 $include "%ProgramPath%IRDE\vSPDResidualDemandGDXout.inc"
+*       Pivot analysis
+        $if %PivotAnalysis%==1 $include "%ProgramPath%..\Override\Pivot\vSPDPivotGDXout.inc"
+*       Residual demand analysis
+        $if %PivotAnalysis%==-1 $include "%ProgramPath%..\Override\IRDE\vSPDResidualDemandGDXout.inc"
 
     );
 
