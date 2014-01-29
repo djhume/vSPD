@@ -1,6 +1,10 @@
 vSPD
 ====
 
+Include IRDE and Pivotal analysis work into the updated vSPD.
+
+DJ Hume, 29 Jan, 2014
+
 vectorised Scheduling, Pricing and Dispatch - an audited, mathematical replica of SPD, the
 pricing and dispatch engine used in the New Zealand electricity market.
 

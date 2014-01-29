@@ -365,6 +365,7 @@ File temp ;
 * - include .gdx extension to facilitate standalone mode (implies the .gdx extension is omitted from the vSPDcase.inc file)
 * - if file does not exist then go to the next input file
 $if not exist "%inputPath%\%vSPDinputData%.gdx" $goto nextInput
+
 $gdxin "%inputPath%\%vSPDinputData%.gdx"
 * 30 sets
 $load i_tradePeriod i_dateTime i_offer i_trader i_bid i_node i_bus i_branch i_branchConstraint i_ACnodeConstraint i_MnodeConstraint
@@ -772,6 +773,13 @@ busNodeAllocationFactor(dt,b,n) = 0 ;
 * Determine the number of trade periods
 numTradePeriods = card(tp) ;
 
+*=====================================================================================
+* 7b. Pivot analysis
+*=====================================================================================
+
+*$if %PivotAnalysis%==1 $include "%ProgramPath%Pivot\vSPDPivotIR.inc"
+*Residual demand analysis
+*$if %PivotAnalysis%==-1 $include "%ProgramPath%IRDE\vSPDResidualDemand.inc"
 
 
 *=====================================================================================
@@ -4020,6 +4028,12 @@ if( (FTRflag = 0),
                            o_manuRiskLevel, o_manuHVDCriskLevel
                            o_FIRcleared_TP, o_SIRcleared_TP ;
         );
+
+        *Pivot analysis
+*+++++++++++++++++++++++++++++Pivot analysis++++++++++++++++++++++++++++++++++++
+        $if %PivotAnalysis%==1 $include "%ProgramPath%Pivot\vSPDPivotGDXout.inc"
+*+++++++++++++++++++++++++++++Residual demand analysis++++++++++++++++++++++++++
+        $if %PivotAnalysis%==-1 $include "%ProgramPath%IRDE\vSPDResidualDemandGDXout.inc"
 
     );
 

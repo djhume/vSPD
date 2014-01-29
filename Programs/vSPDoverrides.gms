@@ -411,13 +411,6 @@ $gdxin
 
 * EMI and Standalone interface - assign or initialise all of the override symbols - this goes on for many pages...
 
-
-
-
-
-
-
-
 *=====================================================================================
 * x. Initialise new data instances based on new set elements in override file
 *=====================================================================================
