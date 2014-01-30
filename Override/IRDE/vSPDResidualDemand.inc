@@ -1,491 +1,479 @@
-
 *=====================================================================================
 * Name:                 vSPDResidualDemand.inc
 * Function:             Residual demand analysis - Offer adjustment
 * Developed by:         Electricity Authority, New Zealand
 * Source:               https://github.com/djhume/vSPD.git
 * Contact:              humed@ea.govt.nz
-* Last modified on:     29 January 2014 (code developed by Dr Ramu Naidoo)
+* Last modified on:     31 January 2014 D J Hume (code developed by Dr Ramu Naidoo)
 *=====================================================================================
 
 $ontext
-This code adjusts the offer stack for selected scenario
-Specified quantity of the offer stack is moved to a tranch with a specified price
+NOTES:
 
-Residual demand curve modelling - Adjust offers for selected trader
-Allow for moving (at island or national level):
+Page 92 onwards in the Wolak report provides a description of the "inverse elasticity
+residual demand" curve.
+
+Wolak's example involves Meridian, who, on a 15% reduction of their total MW offer band
+are able to increase price a whopping 108%.
+
+This is termed the inverse elasticity and is a key determinant of how far above its
+marginal cost (in percentage terms) a profit-maximizing supplier would like its offer
+curve to intersect with its residual demand curve. Specifically, the larger the value
+of the inverse  of the elasticity of the residual demand curve, the greater is the
+percentage a profit-maximizing supplier would like the market price to be above its
+marginal cost.
+
+For the example above the inverse elasticity is 108/15 = 7.2.  
+
+Wolak notes that investigating this gives set quantity/price pairs that could (in
+imperfect -or illiquid markets) be used to "price to take what competition gives them"
+or "pricing at what the market will bear"... obviously to be able to do this and want
+to do this are dependent on a generators net pivotal status.
+
+This work, created by Ramu is to be used (by me) to model this index for every trading
+period and for each participant.  This will give a time series of lerner index for each
+participant.  
+
+This code adjusts the offer stack for the selected scenario, basically a specified
+quantity of the offer stack is moved to a tranch with a specified price.
+
+It allows for moving (at island or national level):
     a) Percentage of island cleared generation to specified offer price band
     b) MW of island cleared generation to specified offer price band
 
-Steps
+This turned out more complicated than first anticipated.... and required the following:
+
     a) Determine the MW amount to be moved (convert the percentage to a MW amount)
     b) loop over all offers for trader
     c) Determine the highest priced tranch of cleared energy
     d) Move the select the MW pf this tranch and move to a higher priced tranch
-    e) If more than unit needs to be moved pro-rate the MW amount between the different offers with the same price
-    f) If the movement violates the FK min constraint then readjust the FK allocation and recalculate MW to move
-    g) If the quantity moved reaches the specified thershold, then exit else continue to move MW
+    e) If more than unit needs to be moved pro-rate the MW amount between the different
+       offers with the same price
+    f) If the movement violates the FK min constraint then readjust the FK allocation
+       and recalculate MW to move
+    g) If the quantity moved reaches the specified thershold, then exit else continue
+       to move MW
+
+Phew!
+
+To acheive this reqiures a dual solve; 
+        1) the first to report cleared gneration per tranch (could get this from the DW); 
+        2) the second to then manipulate the offer curve by setting the last bit of the
+           offer curve to a high price.
+
+So the following is current done (pretty adhoc) 
+    1. Base case run:
+        (a) edit vSPDpaths.inc to setglobal runname and paths as required
+        (b) edit vSPDsettings.inc to set global: i_SequentialSolve (Vectorisation)
+                 and PivotAnalysis flags
+        (c) edit IRDE/vSPDResidualDemand.inc (this file) to set: BaseSolve to 1 
+
+    2. Pivot IRDE analysis:
+        (a) edit vSPDpaths.inc to change the global runname
+        (b) edit IRDE/vSPDResidualDemand.inc to set: BaseSolve/Percentageadj/etc see above
+            flags, also to set the active pivot scenario (see above). 
+
+Once this is achieved look at results: in particular we're interested in the csv file:
+       *IldResDemandResults_TP.csv
+Output of the base solve is placed in the /Programs/IRDE/basePQ/ dir where it is read for
+the non-base, or IRDE solve.
+
+In terms of multiple solves - need to edit vSPDSolve.gms to solve all of a day, over
+multiple files, then there are the 5 options above - also shouldn't we be doing this
+nationally too?...
+
+In vSPDSolve.gms: overrides begin ~line 500
 
 $offtext
-
+*=====================================================================================
 
 *Allow empty data set declaration
 $onempty
 
 *Define the trader names - these are mapped to the number names later on
 Set
-i_TraderName /CTCT, GENE, MERI, MRPL, TRUS, NZAS, Other/
+trdrName /CTCT, GENE, MERI, MRPL, TRUS, NZAS, Other/
 
 *Defines the set of scenarios for the residual demand analysis
-RDAScenario             /Base, MRPL_NI, CTCT_NI, GENE_NI, GENE_SI, MERI_SI, CTCT_SI, TRUS_SI, TRUS_NI/
+RDAScnr             /Base, MRPL_NI, CTCT_NI, GENE_NI, GENE_SI, MERI_SI, CTCT_SI, TRUS_SI, TRUS_NI/
 ;
 
-
-
+*=====================================================================================
 Sets
-TraderNameMap(i_Trader,i_TraderName)
-TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island)
-o_TraderName(i_DateTime,i_TraderName)
-ActiveRDAScenario(RDAScenario)
-FKTraderIslandMinConstraint(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint)
+trdrNameMap(trdr,trdrName)
+trdrOfferIldMap(tp,trdr,o,ild)
+o_trdrName(dt,trdrName)
+ActRDAScnr(RDAScnr)
+FKtrdrIldMinCstr(tp,trdr,ild,MnodeCstr)
 ;
 
+*=====================================================================================
 Parameters
-TraderIslandOfferedMW(i_TradePeriod,i_Island,i_Trader)
-MWToMove(i_TradePeriod,i_Trader)
-
-TraderOfferAdjustment(i_TraderName)
-
-IslandAdjustment(i_Island)
-MaxPriceBand(i_TradePeriod,i_Island,i_Trader)
-TraderMaxPriceBand(i_TradePeriod,i_Trader)
-zeroMaxPrice(i_TradePeriod,i_Island,i_Trader) 
-TotMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader)
-OfferMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock)
-PropOfferAtMinOrMaxPriceBand(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock)
-TotMWMoved(i_TradePeriod,i_Trader)
-OfferMWToMove(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock)
-RemainMWToMove(i_TradePeriod,i_Trader)
-TraderMWMoved(i_TradePeriod,i_Trader,i_Island) 'MW moved for each trader in each island as part of the RDA'
-i_TradePeriodEnergyOffer_temp(i_TradePeriod,i_Offer,i_TradeBlock,i_EnergyOfferComponent)
-i_TradePeriodEnergyOffer_orig(i_TradePeriod,i_Offer,i_TradeBlock,i_EnergyOfferComponent)
-
-*RDN - Summary reporting for the residual demand analysis
-o_NodeGenCost_TP(i_DateTime,i_Node)               'Generator cost - $'
-o_IslandPosLoad_TP(i_DateTime,i_Island)           'Positive only load in each island - MW'
-o_IslandNegLoad_TP(i_DateTime,i_Island)           'Negative only load in each island - MW'
-
-
-o_TraderIslandSuppliedMW(i_DateTime,i_TraderName,i_Island)       'MW supplied by each trader in each island - MW'
-o_TraderIslandGenRevenenue(i_DateTime,i_TraderName,i_Island)     'Generation revenue of each trader in each island - $'
-o_TraderIslandGenCost(i_DateTime,i_TraderName,i_Island)          'Generation cost of each trader in each island - $'
-o_TraderIslandOfferedMW(i_DateTime,i_TraderName,i_Island)        'MW offereed by each trader in each island - MW'
-o_TraderIslandOfferedPQ(i_DateTime,i_TraderName,i_Island)        'PricexQuantity offereed by each trader in each island for each trading period'
-o_TraderQMoved(i_DateTime,i_TraderName,i_Island)                 'Quantity of MW moved of trader offered MW in each island'
-
-o_EnergyOffer_diff(i_DateTime,i_Offer,i_TradeBlock,i_EnergyOfferComponent) 'Difference in the final and original offers'
-
-o_IslandScenarioMW(i_DateTime,i_Island)                  'Scheduled MW from adjusted offers'
-o_IslandScenarioPrice(i_DateTime,i_Island)               'Reference price from adjusted offers'
-o_IslandBaseMW(i_DateTime,i_Island)                      'Base MW'
-o_IslandBasePrice(i_DateTime,i_Island)                   'Base price'
-
-o_IslandAllGen(i_DateTime,i_Island)                      'Island generation for the GWAP calculation'
-o_IslandPosLoad(i_DateTime,i_Island)                     'Island load for the GWAP calculation'
-
-o_IslandScenarioGWAP(i_DateTime,i_Island)                'Island scenario GWAP'
-o_IslandBaseGWAP(i_DateTime,i_Island)                    'Island base GWAP'
-
-prop_Qchange(i_DateTime,i_Island)                        'Proportion Q change'
-o_IRDE_refprice(i_DateTime,i_Island)                     'Residual demand elasticity using reference price'
-o_IRDE_gwap(i_DateTime,i_Island)                         'Residual demand elasticity using gwap price'
-
-*RDN - Cleared block generation
-o_OfferTradeBlockEnergy_TP(i_DateTime,i_Offer,i_TradeBlock)      'Cleared gen by trade block'
-o_ClearedBlockGen(*,i_DateTime,i_Offer,i_TradeBlock)              'Cleared block generation'
-OfferAdjustment(i_Offer)                                          'Offer to adjust'
-
-*RDN - Base nodal price
-o_BaseNodePrice_TP(i_DateTime,i_Node)                    'Nodal price from the base solve'
-
-o_IslandScenarioPQ(i_DateTime,i_Island)                  'Scenario price*quantity'
-o_IslandBasePQ(i_DateTime,i_Island)                      'Base price*quantity'
-
-*RDN - Trade period energy offer - base
-o_TradePeriodBaseEnergyOffer(i_DateTime,i_Offer,i_TradeBlock,i_EnergyOfferComponent)
-o_Qoffer(i_DateTime,i_Island)
-o_PQoffer(i_DateTime,i_Island)
-o_QWOP(i_DateTime,i_Island)
-o_QWOPcleared(i_DateTime,i_Island)
-o_PQoffercleared(i_DateTime,i_Island)
-o_maxPcleared(i_DateTime,i_Island)
-
-IsFK(i_TradePeriod,i_Offer)     				'Flag if offer is the frequency keeper in trading period'
-IncludeFKOffer(i_TradePeriod,i_Offer) 			'Flag to include frequency keeper in offer stack is included in the calc'
-*IncludeFK(i_TradePeriod,i_Trader,i_Island) 		'Flag to include frequency keeper in offer stack is included in the calc'
-*FKgen(i_TradePeriod,i_Trader,i_Island) 			'Total unadjusted cleared offers from FKeeper'
-*FKMWAtMinorMaxPriceBand(i_TradePeriod,i_Trader,i_Island) 'FK MW at maximum price band'
-
-*FKminGen(i_TradePeriod,i_Trader,i_Island)
-*FKOfferMWToMove(i_TradePeriod,i_Trader,i_Island)
-*AdjFKOfferMWToMove(i_TradePeriod,i_Trader,i_Island)
-FKAdjalloc(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock)
-FKAdjprop(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock)
-*FKAvailMWToMove(i_TradePeriod,i_Trader,i_Island)
-
-FKgen(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint)
-FKminGen(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint)
-FKMWAtMinorMaxPriceBand(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint)
-FKAvailMWToMove(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint)
-FKOfferMWToMove(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint)
-AdjFKOfferMWToMove(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint)
-IncludeFK(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint)
+trdrIldOfferedMW(tp,ild,trdr)
+MWToMove(tp,trdr)
+trdrOfferadj(trdrName)
+Ildadj(ild)
+MaxPB(tp,ild,trdr)
+trdrMaxPB(tp,trdr)
+zeroMaxPrice(tp,ild,trdr) 
+TotMWMinMaxPB(tp,trdr)
+o_MWMinMaxPB(tp,trdr,o,trdBlk)
+PropOfferMinMaxPB(tp,trdr,o,trdBlk)
+TotMWMoved(tp,trdr)
+o_MWToMove(tp,trdr,o,trdBlk)
+RemainMWToMove(tp,trdr)
+trdrMWMoved(tp,trdr,ild) 'MW moved for each trader in each island as part of the RDA'
+tpEnergyOffer_temp(tp,o,trdBlk,NRGofrCmpnt)
+tpEnergyOffer_orig(tp,o,trdBlk,NRGofrCmpnt)
+o_NodeGenCost_TP(dt,n)                                 'Generator cost - $'
+o_IldPosLoad_TP(dt,ild)                             'Positive only load in each island - MW'
+o_IldNegLoad_TP(dt,ild)                             'Negative only load in each island - MW'
+o_trdrIldSuppliedMW(dt,trdrName,ild)                'MW supplied by each trader in each island - MW'
+o_trdrIldGenRevenenue(dt,trdrName,ild)              'Generation revenue of each trader in each island - $'
+o_trdrIldGenCost(dt,trdrName,ild)                   'Generation cost of each trader in each island - $'
+o_trdrIldOfferedMW(dt,trdrName,ild)                 'MW offereed by each trader in each island - MW'
+o_trdrIldOfferedPQ(dt,trdrName,ild)                 'PricexQuantity offereed by each trader in each island for each trading period'
+o_trdrQMoved(dt,trdrName,ild)                          'Quantity of MW moved of trader offered MW in each island'
+o_EnergyOffer_diff(dt,o,trdBlk,NRGofrCmpnt) 'Difference in the final and original offers'
+o_IldScnrMW(dt,ild)                             'Scheduled MW from adjusted offers'
+o_IldScnrPrice(dt,ild)                          'Reference price from adjusted offers'
+o_IldBaseMW(dt,ild)                                 'Base MW'
+o_IldBasePrice(dt,ild)                              'Base price'
+o_IldAllGen(dt,ild)                                 'Island generation for the GWAP calculation'
+o_IldPosLoad(dt,ild)                                'Island load for the GWAP calculation'
+o_IldScnrGWAP(dt,ild)                           'Island scenario GWAP'
+o_IldBaseGWAP(dt,ild)                               'Island base GWAP'
+prop_Qchange(dt,ild)                                   'Proportion Q change'
+o_IRDE_refprice(dt,ild)                                'Residual demand elasticity using reference price'
+o_IRDE_gwap(dt,ild)                                    'Residual demand elasticity using gwap price'
+o_OfferTradeBlockEnergy_TP(dt,o,trdBlk)                'Cleared gen by trade block'
+o_ClearedBlockGen(*,dt,o,trdBlk)                       'Cleared block generation'
+Offeradj(o)                                            'Offer to adjust'
+o_BaseNodePrice_TP(dt,n)                               'Nodal price from the base solve'
+o_IldScnrPQ(dt,ild)                             'Scenario price*quantity'
+o_IldBasePQ(dt,ild)                                 'Base price*quantity'
+o_TradePeriodBaseEnergyOffer(dt,o,trdBlk,NRGofrCmpnt)
+o_Qoffer(dt,ild)
+o_PQoffer(dt,ild)
+o_QWOP(dt,ild)
+o_QWOPcleared(dt,ild)
+o_PQoffercleared(dt,ild)
+o_maxPcleared(dt,ild)
+IsFK(tp,o)                                             'Flag if offer is the frequency keeper in trading period'  
+IncludeFKOffer(tp,o)                                   'Flag to include frequency keeper in offer stack is included in the calc'
+*IncludeFK(tp,trdr,ild)                                'Flag to include frequency keeper in offer stack is included in the calc'
+*FKgen(tp,trdr,ild)                                    'Total unadjusted cleared offers from FKeeper'
+*FKMWAtMinorMaxPB(tp,trdr,ild)                  'FK MW at maximum price band'
+*FKminGen(tp,trdr,ild)
+*FKo_MWToMove(tp,trdr,ild)
+*AdjFKo_MWToMove(tp,trdr,ild)
+FKAdjalloc(tp,trdr,o,trdBlk)
+FKAdjprop(tp,trdr,o,trdBlk)
+*FKAvailMWToMove(tp,trdr,ild)
+FKgen(tp,trdr,ild,MnodeCstr)
+FKminGen(tp,trdr,ild,MnodeCstr)
+FKMWAtMinorMaxPB(tp,trdr,ild,MnodeCstr)
+FKAvailMWToMove(tp,trdr,ild,MnodeCstr)
+FKo_MWToMove(tp,trdr,ild,MnodeCstr)
+AdjFKo_MWToMove(tp,trdr,ild,MnodeCstr)
+IncludeFK(tp,trdr,ild,MnodeCstr)
 ;
 
+*=====================================================================================
 alias(*,dim1);
 
+*=====================================================================================
 Scalars
-BaseSolve                /0/
-PercentageAdjustment     /0/
-MWAdjustment             /50/
-LoopIteration            /1/
-MaxLoopIteration         /50/
-TargetPrice              'Target price to use rather than the offer price'                              /20000/
-ManualOfferSelect        'Flag to manually select the offers'                                           /0/
-i_ExcludeACBranchLimits	 'Exclude AC branch limits'														/1/
+BaseSolve          'Base solve, or offer adjustment solve flag, 0 = base, 1 = adj'                 /0/
+Percentageadj      'Percentage adjustment if using'                                                /0/
+MWadj              'MW adjustment if using'                                                        /50/
+LoopIteration      'Loop iteration - loops required to work out adjustment - I think - DJH'        /1/
+MaxLoopIteration   'Map loop iteration - ie, dont take too long about this - I think - DJH'        /50/
+Upwardadj          'Flag to indicate if adjusted prices moved to higher price band'                /1/
+UseTargetPrice     'Flag to use the target price rather than the offer price for the adjusted MW'  /1/
+TargetPrice        'Target price to use rather than the offer price'                               /20000/
+ManualOfferSelect  'Flag to manually select the offers'                
 ;
 
+*=====================================================================================
 *Set the active pivot scenario
-*ActiveRDAScenario('GENE_NI') = yes;
-*ActiveRDAScenario('GENE_SI') = yes;
-*ActiveRDAScenario('MRPL_NI') = yes;
-ActiveRDAScenario('CTCT_NI') = yes;
-*ActiveRDAScenario('MERI_SI') = yes;
-*ActiveRDAScenario('CTCT_SI') = yes;
-*ActiveRDAScenario('TRUS_SI') = yes;
-*ActiveRDAScenario('TRUS_NI') = yes;
+*ActRDAScnr('GENE_NI') = yes;
+*ActRDAScnr('GENE_SI') = yes;
+*ActRDAScnr('MRPL_NI') = yes;
+ActRDAScnr('CTCT_NI') = yes;
+*ActRDAScnr('MERI_SI') = yes;
+*ActRDAScnr('CTCT_SI') = yes;
+*ActRDAScnr('TRUS_SI') = yes;
+*ActRDAScnr('TRUS_NI') = yes;
 
-ActiveRDAScenario('Base') $ BaseSolve = yes;
-ActiveRDAScenario('GENE_NI') $ BaseSolve = no;
-ActiveRDAScenario('GENE_SI') $ BaseSolve = no;
-ActiveRDAScenario('MRPL_NI') $ BaseSolve = no;
-ActiveRDAScenario('CTCT_NI') $ BaseSolve = no;
-ActiveRDAScenario('MERI_SI') $ BaseSolve = no;
-ActiveRDAScenario('CTCT_SI') $ BaseSolve = no;
-ActiveRDAScenario('TRUS_SI') $ BaseSolve = no;
-ActiveRDAScenario('TRUS_NI') $ BaseSolve = no;
+ActRDAScnr('Base') $ BaseSolve = yes;
+ActRDAScnr('GENE_NI') $ BaseSolve = no;
+ActRDAScnr('GENE_SI') $ BaseSolve = no;
+ActRDAScnr('MRPL_NI') $ BaseSolve = no;
+ActRDAScnr('CTCT_NI') $ BaseSolve = no;
+ActRDAScnr('MERI_SI') $ BaseSolve = no;
+ActRDAScnr('CTCT_SI') $ BaseSolve = no;
+ActRDAScnr('TRUS_SI') $ BaseSolve = no;
+ActRDAScnr('TRUS_NI') $ BaseSolve = no;
 
+*=====================================================================================
 *Set up mapping to trader names from the trader id
-TraderNameMap(i_Trader,i_TraderName) = no;
-TraderNameMap(i_Trader,'CTCT') $ sum(sameas(i_Trader,'38433'),1) = yes;
-TraderNameMap(i_Trader,'GENE') $ sum(sameas(i_Trader,'38459'),1) = yes;
-TraderNameMap(i_Trader,'MERI') $ sum(sameas(i_Trader,'38481'),1) = yes;
-TraderNameMap(i_Trader,'MRPL') $ sum(sameas(i_Trader,'38486'),1) = yes;
-TraderNameMap(i_Trader,'TRUS') $ sum(sameas(i_Trader,'38546'),1) = yes;
+trdrNameMap(trdr,trdrName) = no;
+trdrNameMap(trdr,'CTCT') $ sum(sameas(trdr,'38433'),1) = yes;
+trdrNameMap(trdr,'GENE') $ sum(sameas(trdr,'38459'),1) = yes;
+trdrNameMap(trdr,'MERI') $ sum(sameas(trdr,'38481'),1) = yes;
+trdrNameMap(trdr,'MRPL') $ sum(sameas(trdr,'38486'),1) = yes;
+trdrNameMap(trdr,'TRUS') $ sum(sameas(trdr,'38546'),1) = yes;
 
 *Use this to map NZAS IR offers to MERI during IL contract
-TraderNameMap(i_Trader,'NZAS') $ sum(sameas(i_Trader,'38430'),1) = yes;
+trdrNameMap(trdr,'NZAS') $ sum(sameas(trdr,'38430'),1) = yes;
 
-TraderNameMap(i_Trader,'Other') $ (not (sum(i_TraderName $ TraderNameMap(i_Trader,i_TraderName), 1))) = yes;
+trdrNameMap(trdr,'Other') $ (not (sum(trdrName $ trdrNameMap(trdr,trdrName), 1))) = yes;
 
 *Initialise some parameters
-MWToMove(i_TradePeriod,i_Trader) = 0;
-IslandAdjustment(i_Island) = 0;
-TraderOfferAdjustment(i_TraderName) = 0;
-IslandAdjustment(i_Island) = 0;
-OfferAdjustment(i_Offer) = 0;
+MWToMove(tp,trdr) = 0;
+Ildadj(ild) = 0;
+trdrOfferadj(trdrName) = 0;
+Ildadj(ild) = 0;
+Offeradj(o) = 0;
 
-
-*++++++++++Load the base cleared offers and base nodal prices if it exists
+*=====================================================================================
+*Load the base cleared offers and base nodal prices if it exists
 $if exist "%system.fp%..\..\BASE\IRDE\basePQ\%VSPDInputData%_basePQ_TP.gdx" $GDXIN "%system.fp%..\..\BASE\IRDE\basePQ\%VSPDInputData%_basePQ_TP.gdx"
 $If exist "%system.fp%..\..\BASE\IRDE\basePQ\%VSPDInputData%_basePQ_TP.gdx" $LOAD o_OfferTradeBlockEnergy_TP o_BaseNodePrice_TP o_TradePeriodBaseEnergyOffer
 *Close the gdx
 $If exist "%system.fp%..\..\BASE\IRDE\basePQ\%VSPDInputData%_basePQ_TP.gdx" $GDXIN
 
 *Initialise if data exists
-o_OfferTradeBlockEnergy_TP(i_DateTime,i_Offer,i_TradeBlock) $ BaseSolve = 0;
-o_BaseNodePrice_TP(i_DateTime,i_Node) $ BaseSolve = 0;
-o_TradePeriodBaseEnergyOffer(i_DateTime,i_Offer,i_TradeBlock,i_EnergyOfferComponent) $ BaseSolve = 0;
+o_OfferTradeBlockEnergy_TP(dt,o,trdBlk) $ BaseSolve = 0;
+o_BaseNodePrice_TP(dt,n) $ BaseSolve = 0;
+o_TradePeriodBaseEnergyOffer(dt,o,trdBlk,NRGofrCmpnt) $ BaseSolve = 0;
 
-o_IslandAllGen(i_DateTime,i_Island) $ BaseSolve = 0;
-o_IslandPosLoad(i_DateTime,i_Island) $ BaseSolve = 0;
-o_IslandBasePrice(i_DateTime,i_Island) $ BaseSolve = 0;
-o_IslandBaseGWAP(i_DateTime,i_Island) $ BaseSolve = 0;
-*++++++++++Load the base cleared offers and base nodal prices if it exists
+o_IldAllGen(dt,ild) $ BaseSolve = 0;
+o_IldPosLoad(dt,ild) $ BaseSolve = 0;
+o_IldBasePrice(dt,ild) $ BaseSolve = 0;
+o_IldBaseGWAP(dt,ild) $ BaseSolve = 0;
 
-*++++++++++Identify the frequency keeper
-IsFK(i_TradePeriod,i_Offer) = 0;
-IsFK(i_TradePeriod,i_Offer) $ sum(i_MNodeConstraint, i_TradePeriodMNodeEnergyOfferConstraintFactors(i_TradePeriod,i_MNodeConstraint,i_Offer))
+*=====================================================================================
+*Identify the frequency keeper
+IsFK(tp,o) = 0;
+IsFK(tp,o) $ sum(MnodeCstr, tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o))
  = 1;
+IncludeFKOffer(tp,o) = 1;
+IncludeFK(tp,trdr,ild,MnodeCstr) = 1;
 
-IncludeFKOffer(i_TradePeriod,i_Offer) = 1;
-IncludeFK(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint) = 1;
-
-*++++++++++Identify the frequency keeper
-
-
-*++++++++++Map the scenarios to the traders and islands
+*=====================================================================================
+*Map the scenarios to the traders and islands
 if(BaseSolve = 0,
-*MERI - SI - Start--------------------------------------------------
-TraderOfferAdjustment('MERI') $ ActiveRDAScenario('MERI_SI') = yes;
+*MERI - SI
+*=====================================================================================
+trdrOfferadj('MERI') $ ActRDAScnr('MERI_SI') = yes;
 
 *From 09-Mar-13 to 11-June-13 TWI IL is under MERI control
 if (((InputGDXGDate >= 40976) and (InputGDXGDate <= 41070)),
-    TraderOfferAdjustment('NZAS') $ ActiveRDAScenario('MERI_SI') = yes;
+    trdrOfferadj('NZAS') $ ActRDAScnr('MERI_SI') = yes;
 );
-IslandAdjustment('SI') $ ActiveRDAScenario('MERI_SI') = 1;
-*MERI - SI - End-----------------------------------------------------
-
-*GENE - NI - Start--------------------------------------------------
-TraderOfferAdjustment('GENE') $ ActiveRDAScenario('GENE_NI') = yes;
-IslandAdjustment('NI') $ ActiveRDAScenario('GENE_NI') = 1;
-*GENE - NI - End-----------------------------------------------------
-
-*GENE - SI - Start--------------------------------------------------
-TraderOfferAdjustment('GENE') $ ActiveRDAScenario('GENE_SI') = yes;
-IslandAdjustment('SI') $ ActiveRDAScenario('GENE_NI') = 1;
-*GENE - SI - End-----------------------------------------------------
-
-*MRPL - NI - Start--------------------------------------------------
-TraderOfferAdjustment('MRPL') $ ActiveRDAScenario('MRPL_NI') = yes;
-IslandAdjustment('NI') $ ActiveRDAScenario('MRPL_NI') = 1;
-*MRPL - NI - End-----------------------------------------------------
-
-*CTCT - NI - Start--------------------------------------------------
-TraderOfferAdjustment('CTCT') $ ActiveRDAScenario('CTCT_NI') = yes;
-IslandAdjustment('NI') $ ActiveRDAScenario('CTCT_NI') = 1;
-*CTCT - NI - End-----------------------------------------------------
-
-*CTCT - SI - Start--------------------------------------------------
-TraderOfferAdjustment('CTCT') $ ActiveRDAScenario('CTCT_SI') = yes;
-IslandAdjustment('SI') $ ActiveRDAScenario('CTCT_SI') = 1;
-*CTCT - SI - End-----------------------------------------------------
-
-*TRUS - SI - Start--------------------------------------------------
-TraderOfferAdjustment('TRUS') $ ActiveRDAScenario('TRUS_SI') = yes;
-IslandAdjustment('SI') $ ActiveRDAScenario('TRUS_SI') = 1;
-*TRUS - SI - End-----------------------------------------------------
-
-*TRUS - NI - Start--------------------------------------------------
-TraderOfferAdjustment('TRUS') $ ActiveRDAScenario('TRUS_NI') = yes;
-IslandAdjustment('NI') $ ActiveRDAScenario('TRUS_NI') = 1;
-*TRUS - SI - End-----------------------------------------------------
-
-*++++++++++Map the scenarios to the traders and islands
-
-*++++++++++Set up the offers to adjust
+Ildadj('SI') $ ActRDAScnr('MERI_SI') = 1;
+*=====================================================================================
+*GENE - NI
+trdrOfferadj('GENE') $ ActRDAScnr('GENE_NI') = yes;
+Ildadj('NI') $ ActRDAScnr('GENE_NI') = 1;
+*=====================================================================================
+*GENE - SI
+trdrOfferadj('GENE') $ ActRDAScnr('GENE_SI') = yes;
+Ildadj('SI') $ ActRDAScnr('GENE_NI') = 1;
+*=====================================================================================
+*MRPL - NI
+trdrOfferadj('MRPL') $ ActRDAScnr('MRPL_NI') = yes;
+Ildadj('NI') $ ActRDAScnr('MRPL_NI') = 1;
+*=====================================================================================
+*CTCT - NI
+trdrOfferadj('CTCT') $ ActRDAScnr('CTCT_NI') = yes;
+Ildadj('NI') $ ActRDAScnr('CTCT_NI') = 1;
+*=====================================================================================
+*CTCT - SI
+trdrOfferadj('CTCT') $ ActRDAScnr('CTCT_SI') = yes;
+Ildadj('SI') $ ActRDAScnr('CTCT_SI') = 1;
+*=====================================================================================
+*TRUS - SI
+trdrOfferadj('TRUS') $ ActRDAScnr('TRUS_SI') = yes;
+Ildadj('SI') $ ActRDAScnr('TRUS_SI') = 1;
+*=====================================================================================
+*TRUS - NI
+trdrOfferadj('TRUS') $ ActRDAScnr('TRUS_NI') = yes;
+Ildadj('NI') $ ActRDAScnr('TRUS_NI') = 1;
+*=====================================================================================
+*Set up the offers to adjust
 if (ManualOfferSelect,
-
-    OfferAdjustment('HLY2201 HLY1') = 1;
-    OfferAdjustment('HLY2201 HLY2') = 1;
-    OfferAdjustment('HLY2201 HLY3') = 1;
-    OfferAdjustment('HLY2201 HLY4') = 1;
-    OfferAdjustment('HLY2201 HLY5') = 1;
-    OfferAdjustment('HLY2201 HLY6') = 1;
-
+    Offeradj('HLY2201 HLY1') = 1;
+    Offeradj('HLY2201 HLY2') = 1;
+    Offeradj('HLY2201 HLY3') = 1;
+    Offeradj('HLY2201 HLY4') = 1;
+    Offeradj('HLY2201 HLY5') = 1;
+    Offeradj('HLY2201 HLY6') = 1;
 else
-
-    OfferAdjustment(i_Offer) $ sum((i_TradePeriod,i_Trader,i_TraderName,i_Island,i_Node,i_Bus) $ (i_TradePeriodOfferTrader(i_TradePeriod,i_Offer,i_Trader)
-                                                                                 and TraderNameMap(i_Trader,i_TraderName) and TraderOfferAdjustment(i_TraderName) and IslandAdjustment(i_Island)
-                                                                                 and i_TradePeriodOfferNode(i_TradePeriod,i_Offer,i_Node)
-                                                                                 and i_TradePeriodNodeBus(i_TradePeriod,i_Node,i_Bus)
-                                                                                 and i_TradePeriodBusIsland(i_TradePeriod,i_Bus,i_Island)), 1) = yes;
+    Offeradj(o) $ sum((tp,trdr,trdrName,ild,n,i_Bus) $ (tpOffertrdr(tp,o,trdr)
+                       and trdrNameMap(trdr,trdrName) and trdrOfferadj(trdrName) and Ildadj(ild)
+                       and tpOfferNode(tp,o,n)
+                       and tpNodeBus(tp,n,i_Bus)
+                       and tpBusIld(tp,i_Bus,ild)), 1) = yes;
 );
 
-*++++++++++Set up the offers to adjust
+*=====================================================================================
+*Determine mapping of offer to trader and island
+trdrOfferIldMap(tp,trdr,o,ild) = no;
+trdrOfferIldMap(tp,trdr,o,ild) $ sum((n,i_Bus) $ (tpOffertrdr(tp,o,trdr) 
+                                         and tpOfferNode(tp,o,n) 
+                                         and tpNodeBus(tp,n,i_Bus) 
+                                         and tpBusIld(tp,i_Bus,ild) 
+                                         and tpNodeBusAllocationFactor(tp,n,i_Bus)),1) = yes;
 
-*++++++++++Determine mapping of offer to trader and island
-TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island) = no;
-TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island) $ sum((i_Node,i_Bus) $ (i_TradePeriodOfferTrader(i_TradePeriod,i_Offer,i_Trader) 
-																					  and i_TradePeriodOfferNode(i_TradePeriod,i_Offer,i_Node) 
-																					  and i_TradePeriodNodeBus(i_TradePeriod,i_Node,i_Bus) 
-																					  and i_TradePeriodBusIsland(i_TradePeriod,i_Bus,i_Island) 
-																					  and i_TradePeriodNodeBusAllocationFactor(i_TradePeriod,i_Node,i_Bus)
-																					  ),1) = yes;
-
+*=====================================================================================
 *Initialise some parameters
-MaxPriceBand(i_TradePeriod,i_Island,i_Trader) = -99999;
-TraderMaxPriceBand(i_TradePeriod,i_Trader) = 0;
-TotMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader) = 0;
-OfferMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) = 0;
-PropOfferAtMinOrMaxPriceBand(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) = 0;
-RemainMWToMove(i_TradePeriod,i_Trader) = 0;
-TotMWMoved(i_TradePeriod,i_Trader) = 0;
-OfferMWToMove(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) = 0;
-TraderMWMoved(i_TradePeriod,i_Trader,i_Island) = 0;
+MaxPB(tp,ild,trdr) = -99999;
+trdrMaxPB(tp,trdr) = 0;
+TotMWMinMaxPB(tp,trdr) = 0;
+o_MWMinMaxPB(tp,trdr,o,trdBlk) = 0;
+PropOfferMinMaxPB(tp,trdr,o,trdBlk) = 0;
+RemainMWToMove(tp,trdr) = 0;
+TotMWMoved(tp,trdr) = 0;
+o_MWToMove(tp,trdr,o,trdBlk) = 0;
+trdrMWMoved(tp,trdr,ild) = 0;
 
+*=====================================================================================
 *Update the energy offer to the cleared offer from the base solve for the relevant trader
-i_TradePeriodEnergyOffer(i_TradePeriod,i_Offer,i_TradeBlock,'i_GenerationMWOffer')
-   $ ((sum((i_Island,i_Trader,i_TraderName) $ (TraderOfferAdjustment(i_TraderName)
-                                       and IslandAdjustment(i_Island)
-                                       and TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island)
-                                       and TraderNameMap(i_Trader,i_TraderName)
-                                       and i_TradePeriodOfferTrader(i_TradePeriod,i_Offer,i_Trader)
-                                       ), 1)))
-    = sum(i_DateTime $ i_DateTimeTradePeriodMap(i_DateTime,i_TradePeriod), o_OfferTradeBlockEnergy_TP(i_DateTime,i_Offer,i_TradeBlock));
+tpEnergyOffer(tp,o,trdBlk,'i_GenerationMWOffer')
+   $ ((sum((ild,trdr,trdrName) $ (trdrOfferadj(trdrName)
+       and Ildadj(ild)
+       and trdrOfferIldMap(tp,trdr,o,ild)
+       and trdrNameMap(trdr,trdrName)
+       and tpOffertrdr(tp,o,trdr)), 1))) = sum(dt $ dtTradePeriodMap(dt,tp), o_OfferTradeBlockEnergy_TP(dt,o,trdBlk));
 
-i_TradePeriodEnergyOffer_temp(i_TradePeriod,i_Offer,i_TradeBlock,i_EnergyOfferComponent) = i_TradePeriodEnergyOffer(i_TradePeriod,i_Offer,i_TradeBlock,i_EnergyOfferComponent);
-i_TradePeriodEnergyOffer_orig(i_TradePeriod,i_Offer,i_TradeBlock,i_EnergyOfferComponent) = i_TradePeriodEnergyOffer(i_TradePeriod,i_Offer,i_TradeBlock,i_EnergyOfferComponent);
+tpEnergyOffer_temp(tp,o,trdBlk,NRGofrCmpnt) = tpEnergyOffer(tp,o,trdBlk,NRGofrCmpnt);
+tpEnergyOffer_orig(tp,o,trdBlk,NRGofrCmpnt) = tpEnergyOffer(tp,o,trdBlk,NRGofrCmpnt);
 
+*=====================================================================================
 *Calculate the total MW offered by each trader in each island during each trading period
-TraderIslandOfferedMW(i_TradePeriod,i_Island,i_Trader) = sum((i_Offer,i_TradeBlock) $ (OfferAdjustment(i_Offer) and TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island)), i_TradePeriodEnergyOffer(i_TradePeriod,i_Offer,i_TradeBlock,'i_GenerationMWOffer'));
+trdrIldOfferedMW(tp,ild,trdr) = sum((o,trdBlk) $ (Offeradj(o) and trdrOfferIldMap(tp,trdr,o,ild)), tpEnergyOffer(tp,o,trdBlk,'i_GenerationMWOffer'));
+MWToMove(tp,trdr) $ (sum(trdrName $ trdrNameMap(trdr,trdrName), trdrOfferadj(trdrName)) and Percentageadj) = (Percentageadj/100) * sum(ild $ Ildadj(ild), trdrIldOfferedMW(tp,ild,trdr));
+MWToMove(tp,trdr) $ (sum(trdrName $ trdrNameMap(trdr,trdrName), trdrOfferadj(trdrName)) and MWadj) = min(MWadj, sum(ild $ Ildadj(ild), trdrIldOfferedMW(tp,ild,trdr)));
 
-MWToMove(i_TradePeriod,i_Trader) $ (sum(i_TraderName $ TraderNameMap(i_Trader,i_TraderName), TraderOfferAdjustment(i_TraderName)) and PercentageAdjustment) = (PercentageAdjustment/100) * sum(i_Island $ IslandAdjustment(i_Island), TraderIslandOfferedMW(i_TradePeriod,i_Island,i_Trader));
-
-MWToMove(i_TradePeriod,i_Trader) $ (sum(i_TraderName $ TraderNameMap(i_Trader,i_TraderName), TraderOfferAdjustment(i_TraderName)) and MWAdjustment) = min(MWAdjustment, sum(i_Island $ IslandAdjustment(i_Island), TraderIslandOfferedMW(i_TradePeriod,i_Island,i_Trader)));
-
+*=====================================================================================
 *Loop until the required MW are moved to the higher price tranch
-loop((i_TradePeriod,i_Trader) $ [sum(i_TraderName $ TraderNameMap(i_Trader,i_TraderName), TraderOfferAdjustment(i_TraderName))],
-
+loop((tp,trdr) $ [sum(trdrName $ trdrNameMap(trdr,trdrName), trdrOfferadj(trdrName))],
     LoopIteration = 1;
-    RemainMWToMove(i_TradePeriod,i_Trader) = MWToMove(i_TradePeriod,i_Trader);
+    RemainMWToMove(tp,trdr) = MWToMove(tp,trdr);
+    while((RemainMWToMove(tp,trdr)>0) and (LoopIteration <= MaxLoopIteration),
+        MaxPB(tp,ild,trdr) = 0;
+        trdrMaxPB(tp,trdr) = 0;
+        zeroMaxPrice(tp,ild,trdr) = 0;
+        TotMWMinMaxPB(tp,trdr) = 0;
+        o_MWMinMaxPB(tp,trdr,o,trdBlk) = 0;
+        PropOfferMinMaxPB(tp,trdr,o,trdBlk) = 0;
+        o_MWToMove(tp,trdr,o,trdBlk) = 0;
+        TotMWMoved(tp,trdr) = 0;
+        MaxPB(tp,ild,trdr) $ trdrIldOfferedMW(tp,ild,trdr) = smax((o,trdBlk) $ (Offeradj(o) 
+		  								                                     and trdrOfferIldMap(tp,trdr,o,ild) 
+		  								                                     and tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOffer') 
+		  								                                     and (ord(trdBlk)<20)
+		  								                                     and IncludeFKOffer(tp,o)), tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOfferPrice'));
 
-     while((RemainMWToMove(i_TradePeriod,i_Trader)>0) and (LoopIteration <= MaxLoopIteration),
+        zeroMaxPrice(tp,ild,trdr) $ [trdrIldOfferedMW(tp,ild,trdr) and (MaxPB(tp,ild,trdr) = 0)] = 1; 
+
+*       Do this to set the max price when zero since 0 does not seem to work in the ffg smax
+        MaxPB(tp,ild,trdr) $ [trdrIldOfferedMW(tp,ild,trdr) and (zeroMaxPrice(tp,ild,trdr) = 1)] = -1;
+        trdrMaxPB(tp,trdr) $ MWToMove(tp,trdr) = smax(ild $ [Ildadj(ild)], MaxPB(tp,ild,trdr));          
+		o_MWMinMaxPB(tp,trdr,o,trdBlk) $ (Offeradj(o) and (ord(trdBlk) < 20) and MWToMove(tp,trdr)) = sum(ild $ (Ildadj(ild) 
+																								                   		and trdrOfferIldMap(tp,trdr,o,ild)
+																								                   		and (tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOfferPrice') = trdrMaxPB(tp,trdr)) 
+																								                   		and IncludeFKOffer(tp,o)), tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOffer'));
 
 
-          MaxPriceBand(i_TradePeriod,i_Island,i_Trader) = 0;
-          TraderMaxPriceBand(i_TradePeriod,i_Trader) = 0;
-          zeroMaxPrice(i_TradePeriod,i_Island,i_Trader) = 0;
+        o_MWMinMaxPB(tp,trdr,o,trdBlk) $ (Offeradj(o)	and (ord(trdBlk) < 20) and MWToMove(tp,trdr) and (trdrMaxPB(tp,trdr) = -1)) = sum(ild $ (Ildadj(ild) 
+                                                                                                                                                             and trdrOfferIldMap(tp,trdr,o,ild)
+                                                                                                                                                             and IncludeFKOffer(tp,o)), tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOffer'));
+
+*       display MaxPB, trdrMaxPB, ZeroMaxPrice, o_MWMinMaxPB;
+
+        TotMWMinMaxPB(tp,trdr) $ (MWToMove(tp,trdr)) = sum((o,ild,trdBlk) $ (Offeradj(o) 
+                                                                       and Ildadj(ild) 
+                                                                       and trdrOfferIldMap(tp,trdr,o,ild) 
+                                                                       and IncludeFKOffer(tp,o)), o_MWMinMaxPB(tp,trdr,o,trdBlk));
+
+        PropOfferMinMaxPB(tp,trdr,o,trdBlk) $ (Offeradj(o) and TotMWMinMaxPB(tp,trdr) and (ord(trdBlk) < 20)) = o_MWMinMaxPB(tp,trdr,o,trdBlk)/TotMWMinMaxPB(tp,trdr);
+
+*       If TotMWMinMaxPB <= Remaining MW to move, then move the entire quantity to the maximum price band otherwise limit the amount to the remaining MW to move
+        
+        TotMWMoved(tp,trdr) = min(TotMWMinMaxPB(tp,trdr),RemainMWToMove(tp,trdr));
+
+*       Pro-rate the MW to move by offer depending on the proportion of its MW at the total minimum offer price
+        
+        o_MWToMove(tp,trdr,o,trdBlk) $ Offeradj(o) =  TotMWMoved(tp,trdr) * PropOfferMinMaxPB(tp,trdr,o,trdBlk);
+
+*       If no offers to move then exit		  
+        
+        LoopIteration $ (TotMWMoved(tp,trdr) = 0) = MaxLoopIteration; 
 		  
-          TotMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader) = 0;
-          OfferMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) = 0;
-          PropOfferAtMinOrMaxPriceBand(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) = 0;
-          OfferMWToMove(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) =  0;
-          TotMWMoved(i_TradePeriod,i_Trader) = 0;
-
-          MaxPriceBand(i_TradePeriod,i_Island,i_Trader) $ TraderIslandOfferedMW(i_TradePeriod,i_Island,i_Trader) 
-			= smax((i_Offer,i_TradeBlock) $ (OfferAdjustment(i_Offer) 
-											 and TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island) 
-											 and i_TradePeriodEnergyOffer_temp(i_TradePeriod,i_Offer,i_TradeBlock,'i_GenerationMWOffer') 
-											 and (ord(i_TradeBlock)<20)
-											 and IncludeFKOffer(i_TradePeriod,i_Offer))
-											 , i_TradePeriodEnergyOffer_temp(i_TradePeriod,i_Offer,i_TradeBlock,'i_GenerationMWOfferPrice'));
-
-          zeroMaxPrice(i_TradePeriod,i_Island,i_Trader) $ [TraderIslandOfferedMW(i_TradePeriod,i_Island,i_Trader) 
-														   and (MaxPriceBand(i_TradePeriod,i_Island,i_Trader) = 0)
-														  ] = 1; 
-
-*Do this to set the max price when zero since 0 does not seem to work in the ffg smax
-          MaxPriceBand(i_TradePeriod,i_Island,i_Trader) $ [TraderIslandOfferedMW(i_TradePeriod,i_Island,i_Trader)
-														  and (zeroMaxPrice(i_TradePeriod,i_Island,i_Trader) = 1)]	
-			= -1;
-														  
-          TraderMaxPriceBand(i_TradePeriod,i_Trader) $ MWToMove(i_TradePeriod,i_Trader) 
-			= smax(i_Island $ [IslandAdjustment(i_Island)
-							  ], MaxPriceBand(i_TradePeriod,i_Island,i_Trader));          
-
-          							  
-	  
-		  OfferMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) $ (OfferAdjustment(i_Offer) 
-																					and (ord(i_TradeBlock) < 20) 
-																					and MWToMove(i_TradePeriod,i_Trader)
-																					) = sum(i_Island $ (IslandAdjustment(i_Island) 
-																										and TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island)
-																										and (i_TradePeriodEnergyOffer_temp(i_TradePeriod,i_Offer,i_TradeBlock,'i_GenerationMWOfferPrice') = TraderMaxPriceBand(i_TradePeriod,i_Trader)) 
-																										and IncludeFKOffer(i_TradePeriod,i_Offer)
-																										), i_TradePeriodEnergyOffer_temp(i_TradePeriod,i_Offer,i_TradeBlock,'i_GenerationMWOffer'));
-
-
-          OfferMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) $ (OfferAdjustment(i_Offer) 
-																					and (ord(i_TradeBlock) < 20) 
-																					and MWToMove(i_TradePeriod,i_Trader)
-																					and (TraderMaxPriceBand(i_TradePeriod,i_Trader) = -1)				
-																					) = sum(i_Island $ (IslandAdjustment(i_Island) 
-																										and TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island)
-																										and IncludeFKOffer(i_TradePeriod,i_Offer)
-																										), i_TradePeriodEnergyOffer_temp(i_TradePeriod,i_Offer,i_TradeBlock,'i_GenerationMWOffer'));
-
-
-*display MaxPriceBand, TraderMaxPriceBand, ZeroMaxPrice, OfferMWAtMinOrMaxPriceBand;
-
-          TotMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader) $ (MWToMove(i_TradePeriod,i_Trader)) 
-			= sum((i_Offer,i_Island,i_TradeBlock) $ (OfferAdjustment(i_Offer) 
-													and IslandAdjustment(i_Island) 
-													and TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island) 
-													and IncludeFKOffer(i_TradePeriod,i_Offer)
-													), OfferMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock));
-
-
-          PropOfferAtMinOrMaxPriceBand(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) $ (OfferAdjustment(i_Offer) 
-																					   and TotMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader) 
-																					   and (ord(i_TradeBlock) < 20)
-																					   ) = OfferMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock)/TotMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader);
-
-*If TotMWAtMinOrMaxPriceBand <= Remaining MW to move, then move the entire quantity to the maximum price band otherwise limit the amount to the remaining MW to move
-          TotMWMoved(i_TradePeriod,i_Trader) = min(TotMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader),RemainMWToMove(i_TradePeriod,i_Trader));
-
-*Pro-rate the MW to move by offer depending on the proportion of its MW at the total minimum offer price
-          OfferMWToMove(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) $ OfferAdjustment(i_Offer) =  TotMWMoved(i_TradePeriod,i_Trader) * PropOfferAtMinOrMaxPriceBand(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock);
-
-
-*If no offers to move then exit		  
-		  LoopIteration $ (TotMWMoved(i_TradePeriod,i_Trader) = 0) = MaxLoopIteration; 
+*       display o_MWToMove;		  
 		  
-*display OfferMWToMove;		  
-		  
-*+++++++++This section ensures that the minimum generation of the fkeeper is not adjusted below its minimum requirement
+*       This section ensures that the minimum generation of the fkeeper is not adjusted below its minimum requirement
 
-		  FKgen(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint) = sum((i_Offer,i_TradeBlock) $ [TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island) 
-																								   and i_TradePeriodMNodeEnergyOfferConstraintFactors(i_TradePeriod,i_MNodeConstraint,i_Offer)
-																								   and (ord(i_TradeBlock) < 20)
-																								   ], i_TradePeriodEnergyOffer_temp(i_TradePeriod,i_Offer,i_TradeBlock,'i_GenerationMWOffer'));
+		FKgen(tp,trdr,ild,MnodeCstr) = sum((o,trdBlk) $ [trdrOfferIldMap(tp,trdr,o,ild) 
+                                                    and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o)
+                                                    and (ord(trdBlk) < 20)], tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOffer'));
 																				 
-          FKTraderIslandMinConstraint(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint) $ [(i_TradePeriodMNodeConstraintRHS(i_TradePeriod,i_MNodeConstraint,'i_ConstraintSense') = 1) and sum(i_Offer $ TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island), i_TradePeriodMNodeEnergyOfferConstraintFactors(i_TradePeriod,i_MNodeConstraint,i_Offer))]
-           = yes;
+        FKtrdrIldMinCstr(tp,trdr,ild,MnodeCstr) $ [(tpMNodeCstrRHS(tp,MnodeCstr,'i_CstrSense') = 1) and sum(o $ trdrOfferIldMap(tp,trdr,o,ild), tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o))] = yes;
 		   
-          FKminGen(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint) $ FKTraderIslandMinConstraint(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint) 
-		     = i_TradePeriodMNodeConstraintRHS(i_TradePeriod,i_MNodeConstraint,'i_ConstraintLimit');
+        FKminGen(tp,trdr,ild,MnodeCstr) $ FKtrdrIldMinCstr(tp,trdr,ild,MnodeCstr) = tpMNodeCstrRHS(tp,MnodeCstr,'i_CstrLimit');
 		   
- 		  FKMWAtMinorMaxPriceBand(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint) = sum((i_Offer,i_TradeBlock) $ [TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island) 
-																													 and i_TradePeriodMNodeEnergyOfferConstraintFactors(i_TradePeriod,i_MNodeConstraint,i_Offer)
-																													], OfferMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock));
-																			   
-																		   
-*This is the available MW that can be moved          
-		  FKAvailMWToMove(FKTraderIslandMinConstraint) = FKgen(FKTraderIslandMinConstraint) - FKminGen(FKTraderIslandMinConstraint);
+        FKMWAtMinorMaxPB(tp,trdr,ild,MnodeCstr) = sum((o,trdBlk) $ [trdrOfferIldMap(tp,trdr,o,ild) and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o)], o_MWMinMaxPB(tp,trdr,o,trdBlk));
+																			   																		   
+*       This is the available MW that can be moved          
+
+        FKAvailMWToMove(FKtrdrIldMinCstr) = FKgen(FKtrdrIldMinCstr) - FKminGen(FKtrdrIldMinCstr);
 		  
-*This is the offered MW that should be moved		  
-		  FKOfferMWToMove(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint) $ FKTraderIslandMinConstraint(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint) 
-				= sum((i_Offer,i_TradeBlock) $ [TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island) 
-											   and i_TradePeriodMNodeEnergyOfferConstraintFactors(i_TradePeriod,i_MNodeConstraint,i_Offer)
-												], OfferMWToMove(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock));
+*       This is the offered MW that should be moved		  
+        
+        FKo_MWToMove(tp,trdr,ild,MnodeCstr) $ FKtrdrIldMinCstr(tp,trdr,ild,MnodeCstr) = sum((o,trdBlk) $ [trdrOfferIldMap(tp,trdr,o,ild) 
+											   and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o)
+												], o_MWToMove(tp,trdr,o,trdBlk));
 
 																											
 *If the offered MW that should be moved exceeds the available MW that can be moved then exclude the FK from future calcs - at the min gen
-		  IncludeFK(FKTraderIslandMinConstraint) $ [FKOfferMWToMove(FKTraderIslandMinConstraint) >= FKAvailMWToMove(FKTraderIslandMinConstraint)] = 0;
+		  IncludeFK(FKtrdrIldMinCstr) $ [FKo_MWToMove(FKtrdrIldMinCstr) >= FKAvailMWToMove(FKtrdrIldMinCstr)] = 0;
 
 		  
 *Exclude the offers mapped as the Fkeeper if the IncludeFK is set to zero
-          IncludeFKOffer(i_TradePeriod,i_Offer) $ sum((i_Island,i_MNodeConstraint) $ (TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island)
-																					  and FKTraderIslandMinConstraint(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint)
-																					  and i_TradePeriodMNodeEnergyOfferConstraintFactors(i_TradePeriod,i_MNodeConstraint,i_Offer)
-																					  ), 1-IncludeFK(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint)) = 0;	  
+          IncludeFKOffer(tp,o) $ sum((ild,MnodeCstr) $ (trdrOfferIldMap(tp,trdr,o,ild)
+																					  and FKtrdrIldMinCstr(tp,trdr,ild,MnodeCstr)
+																					  and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o)
+																					  ), 1-IncludeFK(tp,trdr,ild,MnodeCstr)) = 0;	  
 
-*display FKAvailMWToMove, FKOfferMWToMove, IncludeFK, IncludeFKOffer;
+*display FKAvailMWToMove, FKo_MWToMove, IncludeFK, IncludeFKOffer;
 																					  
 *Adjust the offered MW that can be moved - limited to the available MW that can be moved
-		  AdjFKOfferMWToMove(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint)
-            = max(0,min(FKAvailMWToMove(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint), FKOfferMWToMove(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint)));
+		  AdjFKo_MWToMove(tp,trdr,ild,MnodeCstr)
+            = max(0,min(FKAvailMWToMove(tp,trdr,ild,MnodeCstr), FKo_MWToMove(tp,trdr,ild,MnodeCstr)));
 
 			
 *Now if there are multiple offers that need adjustment
 *Determine the proportion of the adjusted FK offer movement if need to allocate to several FK offers
-		  FKAdjprop(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) = 0;		 
-		  FKAdjprop(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) $ sum((i_Island,i_MNodeConstraint) $ (TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island)
-																									   and i_TradePeriodMNodeEnergyOfferConstraintFactors(i_TradePeriod,i_MNodeConstraint,i_Offer) 
-																						               ), FKOfferMWToMove(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint)) 
-		    = OfferMWToMove(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) / sum((i_Island,i_MNodeConstraint) $ (TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island)
-																											   and i_TradePeriodMNodeEnergyOfferConstraintFactors(i_TradePeriod,i_MNodeConstraint,i_Offer) 
-																											   ), FKOfferMWToMove(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint));
+		  FKAdjprop(tp,trdr,o,trdBlk) = 0;		 
+		  FKAdjprop(tp,trdr,o,trdBlk) $ sum((ild,MnodeCstr) $ (trdrOfferIldMap(tp,trdr,o,ild)
+																									   and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o) 
+																						               ), FKo_MWToMove(tp,trdr,ild,MnodeCstr)) 
+		    = o_MWToMove(tp,trdr,o,trdBlk) / sum((ild,MnodeCstr) $ (trdrOfferIldMap(tp,trdr,o,ild)
+																											   and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o) 
+																											   ), FKo_MWToMove(tp,trdr,ild,MnodeCstr));
 			
 *Determine the adjusted allocation
- 		  FKAdjalloc(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) = 0;		 
-		  FKAdjalloc(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) $ sum((i_Island,i_MNodeConstraint) $ (TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island)
-																									   and i_TradePeriodMNodeEnergyOfferConstraintFactors(i_TradePeriod,i_MNodeConstraint,i_Offer) 
-																						               ), FKOfferMWToMove(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint)) 
-		    = FKAdjprop(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) * sum((i_Island,i_MNodeConstraint) $ (TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island)
-																									       and i_TradePeriodMNodeEnergyOfferConstraintFactors(i_TradePeriod,i_MNodeConstraint,i_Offer) 
-																						                   ), AdjFKOfferMWToMove(i_TradePeriod,i_Trader,i_Island,i_MNodeConstraint));
+ 		  FKAdjalloc(tp,trdr,o,trdBlk) = 0;		 
+		  FKAdjalloc(tp,trdr,o,trdBlk) $ sum((ild,MnodeCstr) $ (trdrOfferIldMap(tp,trdr,o,ild)
+																									   and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o) 
+																						               ), FKo_MWToMove(tp,trdr,ild,MnodeCstr)) 
+		    = FKAdjprop(tp,trdr,o,trdBlk) * sum((ild,MnodeCstr) $ (trdrOfferIldMap(tp,trdr,o,ild)
+																									       and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o) 
+																						                   ), AdjFKo_MWToMove(tp,trdr,ild,MnodeCstr));
 
 *display FKAdjprop, IncludeFKOffer, IncludeFK;
 
@@ -494,47 +482,47 @@ loop((i_TradePeriod,i_Trader) $ [sum(i_TraderName $ TraderNameMap(i_Trader,i_Tra
 *+++++++++++++++++++++++++++++++++++++++++++++++++Update with the FK allocation 
      
 *Reassign the offer MW of FKeepers at their limit	  
-		  OfferMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) $ (OfferAdjustment(i_Offer) 
-		                                                                             and (ord(i_TradeBlock) < 20) 
-																					 and MWToMove(i_TradePeriod,i_Trader)
-																					 and (IncludeFKOffer(i_TradePeriod,i_Offer) = 0)
-																					 ) = FKAdjalloc(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock);
+		  o_MWMinMaxPB(tp,trdr,o,trdBlk) $ (Offeradj(o) 
+		                                                                             and (ord(trdBlk) < 20) 
+																					 and MWToMove(tp,trdr)
+																					 and (IncludeFKOffer(tp,o) = 0)
+																					 ) = FKAdjalloc(tp,trdr,o,trdBlk);
 	
-	      TotMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader) $ (MWToMove(i_TradePeriod,i_Trader)) = sum((i_Offer,i_Island,i_TradeBlock) $ (OfferAdjustment(i_Offer) 
-		                                                                                                                                 and IslandAdjustment(i_Island) 
-																																		 and TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island) 
-																																		 ), OfferMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock));
+	      TotMWMinMaxPB(tp,trdr) $ (MWToMove(tp,trdr)) = sum((o,ild,trdBlk) $ (Offeradj(o) 
+		                                                                                                                                 and Ildadj(ild) 
+																																		 and trdrOfferIldMap(tp,trdr,o,ild) 
+																																		 ), o_MWMinMaxPB(tp,trdr,o,trdBlk));
 
 
-          PropOfferAtMinOrMaxPriceBand(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) $ (OfferAdjustment(i_Offer) and TotMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader) and (ord(i_TradeBlock) < 20)) = OfferMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock)/TotMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader);
+          PropOfferMinMaxPB(tp,trdr,o,trdBlk) $ (Offeradj(o) and TotMWMinMaxPB(tp,trdr) and (ord(trdBlk) < 20)) = o_MWMinMaxPB(tp,trdr,o,trdBlk)/TotMWMinMaxPB(tp,trdr);
 
-*If TotMWAtMinOrMaxPriceBand <= Remaining MW to move, then move the entire quantity to the maximum price band otherwise limit the amount to the remaining MW to move
-          TotMWMoved(i_TradePeriod,i_Trader) = min(TotMWAtMinOrMaxPriceBand(i_TradePeriod,i_Trader),RemainMWToMove(i_TradePeriod,i_Trader));
+*If TotMWMinMaxPB <= Remaining MW to move, then move the entire quantity to the maximum price band otherwise limit the amount to the remaining MW to move
+          TotMWMoved(tp,trdr) = min(TotMWMinMaxPB(tp,trdr),RemainMWToMove(tp,trdr));
 
 *Pro-rate the MW to move by offer depending on the proportion of its MW at the total minimum offer price
-          OfferMWToMove(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) $ OfferAdjustment(i_Offer) =  TotMWMoved(i_TradePeriod,i_Trader) * PropOfferAtMinOrMaxPriceBand(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock);
+          o_MWToMove(tp,trdr,o,trdBlk) $ Offeradj(o) =  TotMWMoved(tp,trdr) * PropOfferMinMaxPB(tp,trdr,o,trdBlk);
 
 *+++++++++++++++++++++++++++++++++++++++++++++++++Update with the FK allocation 	
 
-		  i_TradePeriodEnergyOffer_temp(i_TradePeriod,i_Offer,i_TradeBlock,'i_GenerationMWOffer') $ (OfferAdjustment(i_Offer) 
-																									 and OfferMWToMove(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock) 
-																									 ) = max(0,(i_TradePeriodEnergyOffer_temp(i_TradePeriod,i_Offer,i_TradeBlock,'i_GenerationMWOffer') - OfferMWToMove(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock)));
+		  tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOffer') $ (Offeradj(o) 
+																									 and o_MWToMove(tp,trdr,o,trdBlk) 
+																									 ) = max(0,(tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOffer') - o_MWToMove(tp,trdr,o,trdBlk)));
 
-          i_TradePeriodEnergyOffer_temp(i_TradePeriod,i_Offer,'t20','i_GenerationMWOfferPrice') $ (OfferAdjustment(i_Offer) 
-																								   and sum(i_TradeBlock, OfferMWToMove(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock))
+          tpEnergyOffer_temp(tp,o,'t20','i_GenerationMWOfferPrice') $ (Offeradj(o) 
+																								   and sum(trdBlk, o_MWToMove(tp,trdr,o,trdBlk))
 																								   ) = TargetPrice;
 
-          i_TradePeriodEnergyOffer_temp(i_TradePeriod,i_Offer,'t20','i_GenerationMWOffer') $ (OfferAdjustment(i_Offer) 
-																							  and sum(i_TradeBlock, OfferMWToMove(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock))
-																							  ) = i_TradePeriodEnergyOffer_temp(i_TradePeriod,i_Offer,'t20','i_GenerationMWOffer') + sum(i_TradeBlock, OfferMWToMove(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock));
+          tpEnergyOffer_temp(tp,o,'t20','i_GenerationMWOffer') $ (Offeradj(o) 
+																							  and sum(trdBlk, o_MWToMove(tp,trdr,o,trdBlk))
+																							  ) = tpEnergyOffer_temp(tp,o,'t20','i_GenerationMWOffer') + sum(trdBlk, o_MWToMove(tp,trdr,o,trdBlk));
 
-         RemainMWToMove(i_TradePeriod,i_Trader) = RemainMWToMove(i_TradePeriod,i_Trader) - TotMWMoved(i_TradePeriod,i_Trader);
+         RemainMWToMove(tp,trdr) = RemainMWToMove(tp,trdr) - TotMWMoved(tp,trdr);
 	 
-         TraderMWMoved(i_TradePeriod,i_Trader,i_Island) = TraderMWMoved(i_TradePeriod,i_Trader,i_Island) + sum((i_Offer,i_TradeBlock) $ (OfferAdjustment(i_Offer) and TraderOfferIslandMap(i_TradePeriod,i_Trader,i_Offer,i_Island)), OfferMWToMove(i_TradePeriod,i_Trader,i_Offer,i_TradeBlock));
+         trdrMWMoved(tp,trdr,ild) = trdrMWMoved(tp,trdr,ild) + sum((o,trdBlk) $ (Offeradj(o) and trdrOfferIldMap(tp,trdr,o,ild)), o_MWToMove(tp,trdr,o,trdBlk));
 
          LoopIteration = LoopIteration + 1;
 
-*display RemainMWToMove, TraderMWMoved;
+*display RemainMWToMove, trdrMWMoved;
 
 *End while
      );
@@ -542,15 +530,15 @@ loop((i_TradePeriod,i_Trader) $ [sum(i_TraderName $ TraderNameMap(i_Trader,i_Tra
 *End loop
 );
 
-*RDN - Update the energy offer if the TradeOfferAdjustment flag is set
-i_TradePeriodEnergyOffer(i_TradePeriod,i_Offer,i_TradeBlock,i_EnergyOfferComponent) $ (OfferAdjustment(i_Offer) and sum(i_TraderName, TraderOfferAdjustment(i_TraderName))) = i_TradePeriodEnergyOffer_temp(i_TradePeriod,i_Offer,i_TradeBlock,i_EnergyOfferComponent);
+*RDN - Update the energy offer if the TradeOfferadj flag is set
+tpEnergyOffer(tp,o,trdBlk,NRGofrCmpnt) $ (Offeradj(o) and sum(trdrName, trdrOfferadj(trdrName))) = tpEnergyOffer_temp(tp,o,trdBlk,NRGofrCmpnt);
 
 
 *Clear the temp energy offer file
-option clear = i_TradePeriodEnergyOffer_temp;
+option clear = tpEnergyOffer_temp;
 
 
 );
 
-*execute_unload 'RevisedOffer.gdx', i_TradePeriodEnergyOffer;
+*execute_unload 'RevisedOffer.gdx', tpEnergyOffer;
 

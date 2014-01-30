@@ -6,7 +6,7 @@
 * Source:               https://github.com/ElectricityAuthority/vSPD
 *                       http://reports.ea.govt.nz/EMIIntro.htm
 * Contact:              emi@ea.govt.nz
-* Last modified on:     29 January 2014 (DJ Hume)
+* Last modified on:     29 January 2014 (DJ Hume, adding IRDE and Pivotal analysis)
 *=====================================================================================
 
 $ontext
@@ -4014,9 +4014,13 @@ if( (FTRflag = 0),
         );
 
 *       Pivot analysis
-        $if %PivotAnalysis%==1 $include "%ProgramPath%..\Override\Pivot\vSPDPivotGDXout.inc"
+        if(%PivotAnalysis%==1,
+            $include "%ProgramPath%..\Override\Pivot\vSPDPivotGDXout.inc"
+            );
 *       Residual demand analysis
-        $if %PivotAnalysis%==-1 $include "%ProgramPath%..\Override\IRDE\vSPDResidualDemandGDXout.inc"
+        if(%PivotAnalysis%==-1,
+            $include "%ProgramPath%..\Override\IRDE\vSPDResidualDemandGDXout.inc"
+            );
 
     );
 

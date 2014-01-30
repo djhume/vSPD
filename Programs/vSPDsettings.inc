@@ -53,3 +53,5 @@ $setglobal suppressOverrides               1       ! Specify 1 to suppress readi
 $setglobal calcFTRrentals                  0       ! Specify 1 to calculate FTR rentals, 0 otherwise
 Scalar     opMode                        / 2 / ;   ! Specify 1 for data warehouse; -1 for audit; otherwise usual vSPD mode
 Scalar     tradePeriodReports            / 1 / ;   ! Specify 1 for reports at trading period level, 0 otherwise
+$setglobal PivotAnalysis                  -1       ! Specity 1 for Pivotal; -1 for IRDE
+
