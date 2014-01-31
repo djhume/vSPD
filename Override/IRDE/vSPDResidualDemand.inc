@@ -95,11 +95,12 @@ Set
 trdrName /CTCT, GENE, MERI, MRPL, TRUS, NZAS, Other/
 
 *Defines the set of scenarios for the residual demand analysis
-RDAScnr             /Base, MRPL_NI, CTCT_NI, GENE_NI, GENE_SI, MERI_SI, CTCT_SI, TRUS_SI, TRUS_NI/
+RDAScnr /Base, MRPL_NI, CTCT_NI, GENE_NI, GENE_SI, MERI_SI, CTCT_SI, TRUS_SI, TRUS_NI/
 ;
 
 *=====================================================================================
 Sets
+
 trdrNameMap(trdr,trdrName)
 trdrOfferIldMap(tp,trdr,o,ild)
 o_trdrName(dt,trdrName)
@@ -109,50 +110,51 @@ FKtrdrIldMinCstr(tp,trdr,ild,MnodeCstr)
 
 *=====================================================================================
 Parameters
-trdrIldOfferedMW(tp,ild,trdr)
-MWToMove(tp,trdr)
-trdrOfferadj(trdrName)
-Ildadj(ild)
-MaxPB(tp,ild,trdr)
-trdrMaxPB(tp,trdr)
-zeroMaxPrice(tp,ild,trdr) 
-TotMWMinMaxPB(tp,trdr)
-o_MWMinMaxPB(tp,trdr,o,trdBlk)
-PropOfferMinMaxPB(tp,trdr,o,trdBlk)
-TotMWMoved(tp,trdr)
-o_MWToMove(tp,trdr,o,trdBlk)
-RemainMWToMove(tp,trdr)
-trdrMWMoved(tp,trdr,ild) 'MW moved for each trader in each island as part of the RDA'
-tpEnergyOffer_temp(tp,o,trdBlk,NRGofrCmpnt)
-tpEnergyOffer_orig(tp,o,trdBlk,NRGofrCmpnt)
-o_NodeGenCost_TP(dt,n)                                 'Generator cost - $'
-o_IldPosLoad_TP(dt,ild)                             'Positive only load in each island - MW'
-o_IldNegLoad_TP(dt,ild)                             'Negative only load in each island - MW'
-o_trdrIldSuppliedMW(dt,trdrName,ild)                'MW supplied by each trader in each island - MW'
-o_trdrIldGenRevenenue(dt,trdrName,ild)              'Generation revenue of each trader in each island - $'
-o_trdrIldGenCost(dt,trdrName,ild)                   'Generation cost of each trader in each island - $'
-o_trdrIldOfferedMW(dt,trdrName,ild)                 'MW offereed by each trader in each island - MW'
-o_trdrIldOfferedPQ(dt,trdrName,ild)                 'PricexQuantity offereed by each trader in each island for each trading period'
-o_trdrQMoved(dt,trdrName,ild)                          'Quantity of MW moved of trader offered MW in each island'
-o_EnergyOffer_diff(dt,o,trdBlk,NRGofrCmpnt) 'Difference in the final and original offers'
-o_IldScnrMW(dt,ild)                             'Scheduled MW from adjusted offers'
-o_IldScnrPrice(dt,ild)                          'Reference price from adjusted offers'
-o_IldBaseMW(dt,ild)                                 'Base MW'
-o_IldBasePrice(dt,ild)                              'Base price'
-o_IldAllGen(dt,ild)                                 'Island generation for the GWAP calculation'
-o_IldPosLoad(dt,ild)                                'Island load for the GWAP calculation'
-o_IldScnrGWAP(dt,ild)                           'Island scenario GWAP'
-o_IldBaseGWAP(dt,ild)                               'Island base GWAP'
-prop_Qchange(dt,ild)                                   'Proportion Q change'
-o_IRDE_refprice(dt,ild)                                'Residual demand elasticity using reference price'
-o_IRDE_gwap(dt,ild)                                    'Residual demand elasticity using gwap price'
-o_OfferTradeBlockEnergy_TP(dt,o,trdBlk)                'Cleared gen by trade block'
-o_ClearedBlockGen(*,dt,o,trdBlk)                       'Cleared block generation'
-Offeradj(o)                                            'Offer to adjust'
-o_BaseNodePrice_TP(dt,n)                               'Nodal price from the base solve'
-o_IldScnrPQ(dt,ild)                             'Scenario price*quantity'
-o_IldBasePQ(dt,ild)                                 'Base price*quantity'
-o_TradePeriodBaseEnergyOffer(dt,o,trdBlk,NRGofrCmpnt)
+
+trdrIldOfferedMW(tp,ild,trdr)                         'Trader Island Offered MW'
+MWToMove(tp,trdr)                                     'MW to move'
+trdro_adj(trdrName)                                   'Trader offered adjustment'
+Ildadj(ild)                                           'Island adjustment'
+MaxPB(tp,ild,trdr)                                    'Max Price Band'
+trdrMaxPB(tp,trdr)                                    'Trader Max Price Band'
+zeroMaxPrice(tp,ild,trdr)                             'zero Max price'
+TotMWMinMaxPB(tp,trdr)                                'Total MW at Min or Max price band'
+o_MWMinMaxPB(tp,trdr,o,trdBlk)                        'MW at Min or Max price band'
+PropOfferMinMaxPB(tp,trdr,o,trdBlk)                   'Proportion of offer at Min or Max price band'
+TotMWMoved(tp,trdr)                                   'Trader Total MW moved'
+o_MWToMove(tp,trdr,o,trdBlk)                          'Trader offer block MW to move'
+RemainMWToMove(tp,trdr)                               'Trader remaining MW to move'
+trdrMWMoved(tp,trdr,ild)                              'Trader MW moved for each trader in each island as part of the RDA'
+tpEnergyOffer_temp(tp,o,trdBlk,NRGofrCmpnt)           'Temp energy offer'
+tpEnergyOffer_orig(tp,o,trdBlk,NRGofrCmpnt)           'Orig energy offer'
+o_NodeGenCost_TP(dt,n)                                'Node Gen cost - $'
+o_IldPosLoad_TP(dt,ild)                               'Island MW positive only load'
+o_IldNegLoad_TP(dt,ild)                               'Island MW negative only load'
+o_trdrIldSuppliedMW(dt,trdrName,ild)                  'Trader supplied MW in each island'
+o_trdrIldGenRevenenue(dt,trdrName,ild)                'Trader gen revenue in each island - $'
+o_trdrIldGenCost(dt,trdrName,ild)                     'Trader gen cost in each island - $'
+o_trdrIldOfferedMW(dt,trdrName,ild)                   'Trader offered MW in each island'
+o_trdrIldOfferedPQ(dt,trdrName,ild)                   'Trader offered Price x Quantity in each island'
+o_trdrQMoved(dt,trdrName,ild)                         'Trader quantity of MW moved in each island'
+o_EnergyOffer_diff(dt,o,trdBlk,NRGofrCmpnt)           'Difference in the final and original offers'
+o_IldScnrMW(dt,ild)                                   'Island scheduled MW from adjusted offers'
+o_IldScnrPrice(dt,ild)                                'Island reference price from adjusted offers'
+o_IldBaseMW(dt,ild)                                   'Island base MW'
+o_IldBasePrice(dt,ild)                                'Island base price'
+o_IldAllGen(dt,ild)                                   'Island generation for the GWAP calculation'
+o_IldPosLoad(dt,ild)                                  'Island load for the GWAP calculation'
+o_IldScnrGWAP(dt,ild)                                 'Island scenario GWAP'
+o_IldBaseGWAP(dt,ild)                                 'Island base GWAP'
+prop_Qchange(dt,ild)                                  'Proportion Q change'
+o_IRDE_refprice(dt,ild)                               'Residual demand elasticity using reference price'
+o_IRDE_gwap(dt,ild)                                   'Residual demand elasticity using gwap price'
+o_OfferTradeBlockEnergy_TP(dt,o,trdBlk)               'Cleared gen by trade block'
+o_ClearedBlockGen(*,dt,o,trdBlk)                      'Cleared block generation'
+o_adj(o)                                              'Offer to adjust'
+o_BaseNodePrice_TP(dt,n)                              'Nodal price from the base solve'
+o_IldScnrPQ(dt,ild)                                   'Scenario price x quantity'
+o_IldBasePQ(dt,ild)                                   'Base price x quantity'
+o_TradePeriodBaseEnergyOffer(dt,o,trdBlk,NRGofrCmpnt) ''
 o_Qoffer(dt,ild)
 o_PQoffer(dt,ild)
 o_QWOP(dt,ild)
@@ -163,7 +165,7 @@ IsFK(tp,o)                                             'Flag if offer is the fre
 IncludeFKOffer(tp,o)                                   'Flag to include frequency keeper in offer stack is included in the calc'
 *IncludeFK(tp,trdr,ild)                                'Flag to include frequency keeper in offer stack is included in the calc'
 *FKgen(tp,trdr,ild)                                    'Total unadjusted cleared offers from FKeeper'
-*FKMWAtMinorMaxPB(tp,trdr,ild)                  'FK MW at maximum price band'
+*FKMWAtMinorMaxPB(tp,trdr,ild)                         'FK MW at maximum price band'
 *FKminGen(tp,trdr,ild)
 *FKo_MWToMove(tp,trdr,ild)
 *AdjFKo_MWToMove(tp,trdr,ild)
@@ -184,6 +186,7 @@ alias(*,dim1);
 
 *=====================================================================================
 Scalars
+
 BaseSolve          'Base solve, or offer adjustment solve flag, 0 = base, 1 = adj'                 /0/
 Percentageadj      'Percentage adjustment if using'                                                /0/
 MWadj              'MW adjustment if using'                                                        /50/
@@ -197,6 +200,7 @@ ManualOfferSelect  'Flag to manually select the offers'
 
 *=====================================================================================
 *Set the active pivot scenario
+
 *ActRDAScnr('GENE_NI') = yes;
 *ActRDAScnr('GENE_SI') = yes;
 *ActRDAScnr('MRPL_NI') = yes;
@@ -218,6 +222,7 @@ ActRDAScnr('TRUS_NI') $ BaseSolve = no;
 
 *=====================================================================================
 *Set up mapping to trader names from the trader id
+
 trdrNameMap(trdr,trdrName) = no;
 trdrNameMap(trdr,'CTCT') $ sum(sameas(trdr,'38433'),1) = yes;
 trdrNameMap(trdr,'GENE') $ sum(sameas(trdr,'38459'),1) = yes;
@@ -227,18 +232,18 @@ trdrNameMap(trdr,'TRUS') $ sum(sameas(trdr,'38546'),1) = yes;
 
 *Use this to map NZAS IR offers to MERI during IL contract
 trdrNameMap(trdr,'NZAS') $ sum(sameas(trdr,'38430'),1) = yes;
-
 trdrNameMap(trdr,'Other') $ (not (sum(trdrName $ trdrNameMap(trdr,trdrName), 1))) = yes;
 
 *Initialise some parameters
 MWToMove(tp,trdr) = 0;
 Ildadj(ild) = 0;
-trdrOfferadj(trdrName) = 0;
+trdro_adj(trdrName) = 0;
 Ildadj(ild) = 0;
-Offeradj(o) = 0;
+o_adj(o) = 0;
 
 *=====================================================================================
 *Load the base cleared offers and base nodal prices if it exists
+
 $if exist "%system.fp%..\..\BASE\IRDE\basePQ\%VSPDInputData%_basePQ_TP.gdx" $GDXIN "%system.fp%..\..\BASE\IRDE\basePQ\%VSPDInputData%_basePQ_TP.gdx"
 $If exist "%system.fp%..\..\BASE\IRDE\basePQ\%VSPDInputData%_basePQ_TP.gdx" $LOAD o_OfferTradeBlockEnergy_TP o_BaseNodePrice_TP o_TradePeriodBaseEnergyOffer
 *Close the gdx
@@ -256,64 +261,84 @@ o_IldBaseGWAP(dt,ild) $ BaseSolve = 0;
 
 *=====================================================================================
 *Identify the frequency keeper
+
 IsFK(tp,o) = 0;
-IsFK(tp,o) $ sum(MnodeCstr, tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o))
- = 1;
+IsFK(tp,o)
+    $ sum(MnodeCstr, i_tradePeriodMNodeEnergyOfferConstraintFactors(tp,MnodeCstr,o)) = 1;
+
 IncludeFKOffer(tp,o) = 1;
 IncludeFK(tp,trdr,ild,MnodeCstr) = 1;
 
 *=====================================================================================
 *Map the scenarios to the traders and islands
+
 if(BaseSolve = 0,
+
 *MERI - SI
 *=====================================================================================
-trdrOfferadj('MERI') $ ActRDAScnr('MERI_SI') = yes;
+trdro_adj('MERI') $ ActRDAScnr('MERI_SI') = yes;
 
 *From 09-Mar-13 to 11-June-13 TWI IL is under MERI control
 if (((InputGDXGDate >= 40976) and (InputGDXGDate <= 41070)),
-    trdrOfferadj('NZAS') $ ActRDAScnr('MERI_SI') = yes;
+    trdro_adj('NZAS') $ ActRDAScnr('MERI_SI') = yes;
 );
 Ildadj('SI') $ ActRDAScnr('MERI_SI') = 1;
+
 *=====================================================================================
 *GENE - NI
-trdrOfferadj('GENE') $ ActRDAScnr('GENE_NI') = yes;
+
+trdro_adj('GENE') $ ActRDAScnr('GENE_NI') = yes;
 Ildadj('NI') $ ActRDAScnr('GENE_NI') = 1;
+
 *=====================================================================================
 *GENE - SI
-trdrOfferadj('GENE') $ ActRDAScnr('GENE_SI') = yes;
+
+trdro_adj('GENE') $ ActRDAScnr('GENE_SI') = yes;
 Ildadj('SI') $ ActRDAScnr('GENE_NI') = 1;
+
 *=====================================================================================
 *MRPL - NI
-trdrOfferadj('MRPL') $ ActRDAScnr('MRPL_NI') = yes;
+
+trdro_adj('MRPL') $ ActRDAScnr('MRPL_NI') = yes;
 Ildadj('NI') $ ActRDAScnr('MRPL_NI') = 1;
+
 *=====================================================================================
 *CTCT - NI
-trdrOfferadj('CTCT') $ ActRDAScnr('CTCT_NI') = yes;
+
+trdro_adj('CTCT') $ ActRDAScnr('CTCT_NI') = yes;
 Ildadj('NI') $ ActRDAScnr('CTCT_NI') = 1;
+
 *=====================================================================================
 *CTCT - SI
-trdrOfferadj('CTCT') $ ActRDAScnr('CTCT_SI') = yes;
+
+trdro_adj('CTCT') $ ActRDAScnr('CTCT_SI') = yes;
 Ildadj('SI') $ ActRDAScnr('CTCT_SI') = 1;
+
 *=====================================================================================
 *TRUS - SI
-trdrOfferadj('TRUS') $ ActRDAScnr('TRUS_SI') = yes;
+
+trdro_adj('TRUS') $ ActRDAScnr('TRUS_SI') = yes;
 Ildadj('SI') $ ActRDAScnr('TRUS_SI') = 1;
+
 *=====================================================================================
 *TRUS - NI
-trdrOfferadj('TRUS') $ ActRDAScnr('TRUS_NI') = yes;
+
+trdro_adj('TRUS') $ ActRDAScnr('TRUS_NI') = yes;
 Ildadj('NI') $ ActRDAScnr('TRUS_NI') = 1;
+
 *=====================================================================================
 *Set up the offers to adjust
+
 if (ManualOfferSelect,
-    Offeradj('HLY2201 HLY1') = 1;
-    Offeradj('HLY2201 HLY2') = 1;
-    Offeradj('HLY2201 HLY3') = 1;
-    Offeradj('HLY2201 HLY4') = 1;
-    Offeradj('HLY2201 HLY5') = 1;
-    Offeradj('HLY2201 HLY6') = 1;
+    o_adj('HLY2201 HLY1') = 1;
+    o_adj('HLY2201 HLY2') = 1;
+    o_adj('HLY2201 HLY3') = 1;
+    o_adj('HLY2201 HLY4') = 1;
+    o_adj('HLY2201 HLY5') = 1;
+    o_adj('HLY2201 HLY6') = 1;
 else
-    Offeradj(o) $ sum((tp,trdr,trdrName,ild,n,i_Bus) $ (tpOffertrdr(tp,o,trdr)
-                       and trdrNameMap(trdr,trdrName) and trdrOfferadj(trdrName) and Ildadj(ild)
+    o_adj(o) $ sum((tp,trdr,trdrName,ild,n,i_Bus) $ (tpOffertrdr(tp,o,trdr)
+                       and trdrNameMap(trdr,trdrName) and trdro_adj(trdrName) and Ildadj(ild)
                        and tpOfferNode(tp,o,n)
                        and tpNodeBus(tp,n,i_Bus)
                        and tpBusIld(tp,i_Bus,ild)), 1) = yes;
@@ -321,15 +346,17 @@ else
 
 *=====================================================================================
 *Determine mapping of offer to trader and island
+
 trdrOfferIldMap(tp,trdr,o,ild) = no;
 trdrOfferIldMap(tp,trdr,o,ild) $ sum((n,i_Bus) $ (tpOffertrdr(tp,o,trdr) 
-                                         and tpOfferNode(tp,o,n) 
-                                         and tpNodeBus(tp,n,i_Bus) 
-                                         and tpBusIld(tp,i_Bus,ild) 
-                                         and tpNodeBusAllocationFactor(tp,n,i_Bus)),1) = yes;
+                                     and tpOfferNode(tp,o,n) 
+                                     and tpNodeBus(tp,n,i_Bus) 
+                                     and tpBusIld(tp,i_Bus,ild) 
+                                     and tpNodeBusAllocationFactor(tp,n,i_Bus)),1) = yes;
 
 *=====================================================================================
 *Initialise some parameters
+
 MaxPB(tp,ild,trdr) = -99999;
 trdrMaxPB(tp,trdr) = 0;
 TotMWMinMaxPB(tp,trdr) = 0;
@@ -342,25 +369,30 @@ trdrMWMoved(tp,trdr,ild) = 0;
 
 *=====================================================================================
 *Update the energy offer to the cleared offer from the base solve for the relevant trader
-tpEnergyOffer(tp,o,trdBlk,'i_GenerationMWOffer')
-   $ ((sum((ild,trdr,trdrName) $ (trdrOfferadj(trdrName)
-       and Ildadj(ild)
-       and trdrOfferIldMap(tp,trdr,o,ild)
-       and trdrNameMap(trdr,trdrName)
-       and tpOffertrdr(tp,o,trdr)), 1))) = sum(dt $ dtTradePeriodMap(dt,tp), o_OfferTradeBlockEnergy_TP(dt,o,trdBlk));
 
-tpEnergyOffer_temp(tp,o,trdBlk,NRGofrCmpnt) = tpEnergyOffer(tp,o,trdBlk,NRGofrCmpnt);
-tpEnergyOffer_orig(tp,o,trdBlk,NRGofrCmpnt) = tpEnergyOffer(tp,o,trdBlk,NRGofrCmpnt);
+i_TradePeriodEnergyOffer(tp,o,trdBlk,'i_GenerationMWOffer')
+    $ (sum((ild,trdr,trdrName) $ (trdro_adj(trdrName) and Ildadj(ild) and
+            trdrOfferIldMap(tp,trdr,o,ild) and trdrNameMap(trdr,trdrName) and
+            tpOffertrdr(tp,o,trdr)), 1)) = sum(dt $ i_dateTimeTradePeriodMap(dt,tp),
+                                               o_OfferTradeBlockEnergy_TP(dt,o,trdBlk));
+
+tpEnergyOffer_temp(tp,o,trdBlk,NRGofrCmpnt) = i_TradePeriodEnergyOffer(tp,o,trdBlk,NRGofrCmpnt);
+tpEnergyOffer_orig(tp,o,trdBlk,NRGofrCmpnt) = i_TradePeriodEnergyOffer(tp,o,trdBlk,NRGofrCmpnt);
 
 *=====================================================================================
 *Calculate the total MW offered by each trader in each island during each trading period
-trdrIldOfferedMW(tp,ild,trdr) = sum((o,trdBlk) $ (Offeradj(o) and trdrOfferIldMap(tp,trdr,o,ild)), tpEnergyOffer(tp,o,trdBlk,'i_GenerationMWOffer'));
-MWToMove(tp,trdr) $ (sum(trdrName $ trdrNameMap(trdr,trdrName), trdrOfferadj(trdrName)) and Percentageadj) = (Percentageadj/100) * sum(ild $ Ildadj(ild), trdrIldOfferedMW(tp,ild,trdr));
-MWToMove(tp,trdr) $ (sum(trdrName $ trdrNameMap(trdr,trdrName), trdrOfferadj(trdrName)) and MWadj) = min(MWadj, sum(ild $ Ildadj(ild), trdrIldOfferedMW(tp,ild,trdr)));
+
+trdrIldOfferedMW(tp,ild,trdr) = sum((o,trdBlk) $ (o_adj(o) and trdrOfferIldMap(tp,trdr,o,ild)),
+                                    i_TradePeriodEnergyOffer(tp,o,trdBlk,'i_GenerationMWOffer'));
+MWToMove(tp,trdr) $ (sum(trdrName $ trdrNameMap(trdr,trdrName), trdro_adj(trdrName)) and Percentageadj) =
+    (Percentageadj/100) * sum(ild $ Ildadj(ild), trdrIldOfferedMW(tp,ild,trdr));
+MWToMove(tp,trdr) $ (sum(trdrName $ trdrNameMap(trdr,trdrName), trdro_adj(trdrName)) and MWadj) =
+    min(MWadj, sum(ild $ Ildadj(ild), trdrIldOfferedMW(tp,ild,trdr)));
 
 *=====================================================================================
 *Loop until the required MW are moved to the higher price tranch
-loop((tp,trdr) $ [sum(trdrName $ trdrNameMap(trdr,trdrName), trdrOfferadj(trdrName))],
+
+loop((tp,trdr) $ [sum(trdrName $ trdrNameMap(trdr,trdrName), trdro_adj(trdrName))],
     LoopIteration = 1;
     RemainMWToMove(tp,trdr) = MWToMove(tp,trdr);
     while((RemainMWToMove(tp,trdr)>0) and (LoopIteration <= MaxLoopIteration),
@@ -372,173 +404,181 @@ loop((tp,trdr) $ [sum(trdrName $ trdrNameMap(trdr,trdrName), trdrOfferadj(trdrNa
         PropOfferMinMaxPB(tp,trdr,o,trdBlk) = 0;
         o_MWToMove(tp,trdr,o,trdBlk) = 0;
         TotMWMoved(tp,trdr) = 0;
-        MaxPB(tp,ild,trdr) $ trdrIldOfferedMW(tp,ild,trdr) = smax((o,trdBlk) $ (Offeradj(o) 
-		  								                                     and trdrOfferIldMap(tp,trdr,o,ild) 
-		  								                                     and tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOffer') 
-		  								                                     and (ord(trdBlk)<20)
-		  								                                     and IncludeFKOffer(tp,o)), tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOfferPrice'));
+        
+        MaxPB(tp,ild,trdr) 
+            $ trdrIldOfferedMW(tp,ild,trdr) = 
+              smax((o,trdBlk) $ (o_adj(o) 
+                               and trdrOfferIldMap(tp,trdr,o,ild) 
+                               and tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOffer') 
+                               and (ord(trdBlk)<20) and IncludeFKOffer(tp,o)),
+                              tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOfferPrice'));
 
         zeroMaxPrice(tp,ild,trdr) $ [trdrIldOfferedMW(tp,ild,trdr) and (MaxPB(tp,ild,trdr) = 0)] = 1; 
 
 *       Do this to set the max price when zero since 0 does not seem to work in the ffg smax
         MaxPB(tp,ild,trdr) $ [trdrIldOfferedMW(tp,ild,trdr) and (zeroMaxPrice(tp,ild,trdr) = 1)] = -1;
         trdrMaxPB(tp,trdr) $ MWToMove(tp,trdr) = smax(ild $ [Ildadj(ild)], MaxPB(tp,ild,trdr));          
-		o_MWMinMaxPB(tp,trdr,o,trdBlk) $ (Offeradj(o) and (ord(trdBlk) < 20) and MWToMove(tp,trdr)) = sum(ild $ (Ildadj(ild) 
-																								                   		and trdrOfferIldMap(tp,trdr,o,ild)
-																								                   		and (tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOfferPrice') = trdrMaxPB(tp,trdr)) 
-																								                   		and IncludeFKOffer(tp,o)), tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOffer'));
+		o_MWMinMaxPB(tp,trdr,o,trdBlk) $ (o_adj(o) and (ord(trdBlk) < 20) and MWToMove(tp,trdr)) = 
+            sum(ild $ (Ildadj(ild) 
+                and trdrOfferIldMap(tp,trdr,o,ild)
+                and (tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOfferPrice') = trdrMaxPB(tp,trdr)) 
+                and IncludeFKOffer(tp,o)),
+               tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOffer'));
 
-
-        o_MWMinMaxPB(tp,trdr,o,trdBlk) $ (Offeradj(o)	and (ord(trdBlk) < 20) and MWToMove(tp,trdr) and (trdrMaxPB(tp,trdr) = -1)) = sum(ild $ (Ildadj(ild) 
-                                                                                                                                                             and trdrOfferIldMap(tp,trdr,o,ild)
-                                                                                                                                                             and IncludeFKOffer(tp,o)), tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOffer'));
+        o_MWMinMaxPB(tp,trdr,o,trdBlk)
+            $ (o_adj(o) and (ord(trdBlk) < 20) and MWToMove(tp,trdr) and (trdrMaxPB(tp,trdr) = -1)) =
+               sum(ild $ (Ildadj(ild) 
+                   and trdrOfferIldMap(tp,trdr,o,ild)
+                   and IncludeFKOffer(tp,o)),
+                  tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOffer'));
 
 *       display MaxPB, trdrMaxPB, ZeroMaxPrice, o_MWMinMaxPB;
 
-        TotMWMinMaxPB(tp,trdr) $ (MWToMove(tp,trdr)) = sum((o,ild,trdBlk) $ (Offeradj(o) 
-                                                                       and Ildadj(ild) 
-                                                                       and trdrOfferIldMap(tp,trdr,o,ild) 
-                                                                       and IncludeFKOffer(tp,o)), o_MWMinMaxPB(tp,trdr,o,trdBlk));
+        TotMWMinMaxPB(tp,trdr)
+            $ (MWToMove(tp,trdr)) =
+                sum((o,ild,trdBlk) $ (o_adj(o) 
+                    and Ildadj(ild) 
+                    and trdrOfferIldMap(tp,trdr,o,ild) 
+                    and IncludeFKOffer(tp,o)),
+                   o_MWMinMaxPB(tp,trdr,o,trdBlk));
 
-        PropOfferMinMaxPB(tp,trdr,o,trdBlk) $ (Offeradj(o) and TotMWMinMaxPB(tp,trdr) and (ord(trdBlk) < 20)) = o_MWMinMaxPB(tp,trdr,o,trdBlk)/TotMWMinMaxPB(tp,trdr);
+        PropOfferMinMaxPB(tp,trdr,o,trdBlk) 
+            $ (o_adj(o) and TotMWMinMaxPB(tp,trdr) and (ord(trdBlk) < 20)) =
+                o_MWMinMaxPB(tp,trdr,o,trdBlk) / TotMWMinMaxPB(tp,trdr);
 
-*       If TotMWMinMaxPB <= Remaining MW to move, then move the entire quantity to the maximum price band otherwise limit the amount to the remaining MW to move
+*       If TotMWMinMaxPB <= Remaining MW to move, then move the entire quantity to the
+*       maximum price band otherwise limit the amount to the remaining MW to move
         
         TotMWMoved(tp,trdr) = min(TotMWMinMaxPB(tp,trdr),RemainMWToMove(tp,trdr));
 
-*       Pro-rate the MW to move by offer depending on the proportion of its MW at the total minimum offer price
+*       Pro-rate the MW to move by offer depending on the proportion
+*       of its MW at the total minimum offer price
         
-        o_MWToMove(tp,trdr,o,trdBlk) $ Offeradj(o) =  TotMWMoved(tp,trdr) * PropOfferMinMaxPB(tp,trdr,o,trdBlk);
+        o_MWToMove(tp,trdr,o,trdBlk) 
+            $ o_adj(o) = 
+                TotMWMoved(tp,trdr) * PropOfferMinMaxPB(tp,trdr,o,trdBlk);
 
 *       If no offers to move then exit		  
         
-        LoopIteration $ (TotMWMoved(tp,trdr) = 0) = MaxLoopIteration; 
+        LoopIteration
+            $ (TotMWMoved(tp,trdr) = 0) =
+                MaxLoopIteration; 
 		  
 *       display o_MWToMove;		  
-		  
-*       This section ensures that the minimum generation of the fkeeper is not adjusted below its minimum requirement
+*       This section ensures that the minimum generation of the
+*       fkeeper is not adjusted below its minimum requirement
 
-		FKgen(tp,trdr,ild,MnodeCstr) = sum((o,trdBlk) $ [trdrOfferIldMap(tp,trdr,o,ild) 
-                                                    and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o)
-                                                    and (ord(trdBlk) < 20)], tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOffer'));
+		FKgen(tp,trdr,ild,MnodeCstr) = 
+            sum((o,trdBlk) $ [trdrOfferIldMap(tp,trdr,o,ild) 
+                              and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o)
+                              and (ord(trdBlk) < 20)],
+                tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOffer'));
 																				 
-        FKtrdrIldMinCstr(tp,trdr,ild,MnodeCstr) $ [(tpMNodeCstrRHS(tp,MnodeCstr,'i_CstrSense') = 1) and sum(o $ trdrOfferIldMap(tp,trdr,o,ild), tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o))] = yes;
+        FKtrdrIldMinCstr(tp,trdr,ild,MnodeCstr)
+            $ [(tpMNodeCstrRHS(tp,MnodeCstr,'i_CstrSense') = 1)
+               and sum(o $ trdrOfferIldMap(tp,trdr,o,ild),
+                       i_tradePeriodMNodeEnergyOfferConstraintFactors(tp,MnodeCstr,o))] = yes;
 		   
-        FKminGen(tp,trdr,ild,MnodeCstr) $ FKtrdrIldMinCstr(tp,trdr,ild,MnodeCstr) = tpMNodeCstrRHS(tp,MnodeCstr,'i_CstrLimit');
+        FKminGen(tp,trdr,ild,MnodeCstr)
+            $ FKtrdrIldMinCstr(tp,trdr,ild,MnodeCstr) = 
+                tpMNodeCstrRHS(tp,MnodeCstr,'i_CstrLimit');
 		   
-        FKMWAtMinorMaxPB(tp,trdr,ild,MnodeCstr) = sum((o,trdBlk) $ [trdrOfferIldMap(tp,trdr,o,ild) and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o)], o_MWMinMaxPB(tp,trdr,o,trdBlk));
+        FKMWAtMinorMaxPB(tp,trdr,ild,MnodeCstr) = 
+            sum((o,trdBlk) $ [trdrOfferIldMap(tp,trdr,o,ild)
+                              and i_tradePeriodMNodeEnergyOfferConstraintFactors(tp,MnodeCstr,o)],
+                o_MWMinMaxPB(tp,trdr,o,trdBlk));
 																			   																		   
 *       This is the available MW that can be moved          
 
-        FKAvailMWToMove(FKtrdrIldMinCstr) = FKgen(FKtrdrIldMinCstr) - FKminGen(FKtrdrIldMinCstr);
+        FKAvailMWToMove(FKtrdrIldMinCstr) =
+            FKgen(FKtrdrIldMinCstr) - FKminGen(FKtrdrIldMinCstr);
 		  
 *       This is the offered MW that should be moved		  
         
-        FKo_MWToMove(tp,trdr,ild,MnodeCstr) $ FKtrdrIldMinCstr(tp,trdr,ild,MnodeCstr) = sum((o,trdBlk) $ [trdrOfferIldMap(tp,trdr,o,ild) 
-											   and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o)
-												], o_MWToMove(tp,trdr,o,trdBlk));
-
+        FKo_MWToMove(tp,trdr,ild,MnodeCstr) $
+            FKtrdrIldMinCstr(tp,trdr,ild,MnodeCstr) =
+                sum((o,trdBlk) $ [trdrOfferIldMap(tp,trdr,o,ild) 
+								  and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o)],
+                    o_MWToMove(tp,trdr,o,trdBlk));
 																											
-*If the offered MW that should be moved exceeds the available MW that can be moved then exclude the FK from future calcs - at the min gen
-		  IncludeFK(FKtrdrIldMinCstr) $ [FKo_MWToMove(FKtrdrIldMinCstr) >= FKAvailMWToMove(FKtrdrIldMinCstr)] = 0;
+*       If the offered MW that should be moved exceeds the available MW that can be
+*       moved then exclude the FK from future calcs - at the min gen
 
-		  
-*Exclude the offers mapped as the Fkeeper if the IncludeFK is set to zero
-          IncludeFKOffer(tp,o) $ sum((ild,MnodeCstr) $ (trdrOfferIldMap(tp,trdr,o,ild)
-																					  and FKtrdrIldMinCstr(tp,trdr,ild,MnodeCstr)
-																					  and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o)
-																					  ), 1-IncludeFK(tp,trdr,ild,MnodeCstr)) = 0;	  
+	    IncludeFK(FKtrdrIldMinCstr)
+            $ [FKo_MWToMove(FKtrdrIldMinCstr) >= FKAvailMWToMove(FKtrdrIldMinCstr)] = 0;
 
-*display FKAvailMWToMove, FKo_MWToMove, IncludeFK, IncludeFKOffer;
+*       Exclude the offers mapped as the Fkeeper if the IncludeFK is set to zero
+
+        IncludeFKOffer(tp,o)
+            $ sum((ild,MnodeCstr) $ (trdrOfferIldMap(tp,trdr,o,ild)
+                                     and FKtrdrIldMinCstr(tp,trdr,ild,MnodeCstr)
+                                     and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o)),
+                  1 - IncludeFK(tp,trdr,ild,MnodeCstr)) = 0;	  
+
+*       Display FKAvailMWToMove, FKo_MWToMove, IncludeFK, IncludeFKOffer;
 																					  
-*Adjust the offered MW that can be moved - limited to the available MW that can be moved
-		  AdjFKo_MWToMove(tp,trdr,ild,MnodeCstr)
-            = max(0,min(FKAvailMWToMove(tp,trdr,ild,MnodeCstr), FKo_MWToMove(tp,trdr,ild,MnodeCstr)));
-
+*       Adjust the offered MW that can be moved - limited to the available MW that can be moved
+		AdjFKo_MWToMove(tp,trdr,ild,MnodeCstr) = 
+            max(0, min(FKAvailMWToMove(tp,trdr,ild,MnodeCstr), FKo_MWToMove(tp,trdr,ild,MnodeCstr)));
 			
-*Now if there are multiple offers that need adjustment
-*Determine the proportion of the adjusted FK offer movement if need to allocate to several FK offers
-		  FKAdjprop(tp,trdr,o,trdBlk) = 0;		 
-		  FKAdjprop(tp,trdr,o,trdBlk) $ sum((ild,MnodeCstr) $ (trdrOfferIldMap(tp,trdr,o,ild)
-																									   and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o) 
-																						               ), FKo_MWToMove(tp,trdr,ild,MnodeCstr)) 
-		    = o_MWToMove(tp,trdr,o,trdBlk) / sum((ild,MnodeCstr) $ (trdrOfferIldMap(tp,trdr,o,ild)
-																											   and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o) 
-																											   ), FKo_MWToMove(tp,trdr,ild,MnodeCstr));
+*       Now if there are multiple offers that need adjustment
+*       Determine the proportion of the adjusted FK offer movement if need to allocate to several FK offers
+
+        FKAdjprop(tp,trdr,o,trdBlk) = 0;		 
+		FKAdjprop(tp,trdr,o,trdBlk)
+            $ sum((ild,MnodeCstr) $ (trdrOfferIldMap(tp,trdr,o,ild)
+		     	                     and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o)),
+                    FKo_MWToMove(tp,trdr,ild,MnodeCstr)) = 
+                    o_MWToMove(tp,trdr,o,trdBlk) / sum((ild,MnodeCstr) $ (trdrOfferIldMap(tp,trdr,o,ild) 
+                                                                          and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o)),
+                                                       FKo_MWToMove(tp,trdr,ild,MnodeCstr));
 			
-*Determine the adjusted allocation
- 		  FKAdjalloc(tp,trdr,o,trdBlk) = 0;		 
-		  FKAdjalloc(tp,trdr,o,trdBlk) $ sum((ild,MnodeCstr) $ (trdrOfferIldMap(tp,trdr,o,ild)
-																									   and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o) 
-																						               ), FKo_MWToMove(tp,trdr,ild,MnodeCstr)) 
-		    = FKAdjprop(tp,trdr,o,trdBlk) * sum((ild,MnodeCstr) $ (trdrOfferIldMap(tp,trdr,o,ild)
-																									       and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o) 
-																						                   ), AdjFKo_MWToMove(tp,trdr,ild,MnodeCstr));
+*       Determine the adjusted allocation
 
-*display FKAdjprop, IncludeFKOffer, IncludeFK;
+ 		FKAdjalloc(tp,trdr,o,trdBlk) = 0;		 
+		FKAdjalloc(tp,trdr,o,trdBlk)
+            $ sum((ild,MnodeCstr) $ (trdrOfferIldMap(tp,trdr,o,ild) and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o)), FKo_MWToMove(tp,trdr,ild,MnodeCstr)) 
+		  = FKAdjprop(tp,trdr,o,trdBlk) * sum((ild,MnodeCstr) $ (trdrOfferIldMap(tp,trdr,o,ild) and tpMNodeEnergyOfferCstrFactors(tp,MnodeCstr,o)), AdjFKo_MWToMove(tp,trdr,ild,MnodeCstr));
 
-*+++++++++This section ensures that the minimum generation of the fkeeper is not adjusted below its minimum requirement
-	
-*+++++++++++++++++++++++++++++++++++++++++++++++++Update with the FK allocation 
-     
-*Reassign the offer MW of FKeepers at their limit	  
-		  o_MWMinMaxPB(tp,trdr,o,trdBlk) $ (Offeradj(o) 
-		                                                                             and (ord(trdBlk) < 20) 
-																					 and MWToMove(tp,trdr)
-																					 and (IncludeFKOffer(tp,o) = 0)
-																					 ) = FKAdjalloc(tp,trdr,o,trdBlk);
-	
-	      TotMWMinMaxPB(tp,trdr) $ (MWToMove(tp,trdr)) = sum((o,ild,trdBlk) $ (Offeradj(o) 
-		                                                                                                                                 and Ildadj(ild) 
-																																		 and trdrOfferIldMap(tp,trdr,o,ild) 
-																																		 ), o_MWMinMaxPB(tp,trdr,o,trdBlk));
+*       Display FKAdjprop, IncludeFKOffer, IncludeFK;
+*       This section ensures that the minimum generation of the fkeeper is not adjusted below its minimum requirement
+*       Update with the FK allocation 
+*       Reassign the offer MW of FKeepers at their limit
+*
+        o_MWMinMaxPB(tp,trdr,o,trdBlk) $ (o_adj(o) and (ord(trdBlk) < 20) and MWToMove(tp,trdr) and (IncludeFKOffer(tp,o) = 0)) = FKAdjalloc(tp,trdr,o,trdBlk);
+	    TotMWMinMaxPB(tp,trdr) $ (MWToMove(tp,trdr)) = sum((o,ild,trdBlk) $ (o_adj(o) and Ildadj(ild) and trdrOfferIldMap(tp,trdr,o,ild)), o_MWMinMaxPB(tp,trdr,o,trdBlk));
+        PropOfferMinMaxPB(tp,trdr,o,trdBlk) $ (o_adj(o) and TotMWMinMaxPB(tp,trdr) and (ord(trdBlk) < 20)) = o_MWMinMaxPB(tp,trdr,o,trdBlk)/TotMWMinMaxPB(tp,trdr);
 
+*       If TotMWMinMaxPB <= Remaining MW to move, then move the entire quantity to the maximum price band otherwise limit the amount to the remaining MW to move
 
-          PropOfferMinMaxPB(tp,trdr,o,trdBlk) $ (Offeradj(o) and TotMWMinMaxPB(tp,trdr) and (ord(trdBlk) < 20)) = o_MWMinMaxPB(tp,trdr,o,trdBlk)/TotMWMinMaxPB(tp,trdr);
+        TotMWMoved(tp,trdr) = min(TotMWMinMaxPB(tp,trdr),RemainMWToMove(tp,trdr));
 
-*If TotMWMinMaxPB <= Remaining MW to move, then move the entire quantity to the maximum price band otherwise limit the amount to the remaining MW to move
-          TotMWMoved(tp,trdr) = min(TotMWMinMaxPB(tp,trdr),RemainMWToMove(tp,trdr));
+*       Pro-rate the MW to move by offer depending on the proportion of its MW at the total minimum offer price
 
-*Pro-rate the MW to move by offer depending on the proportion of its MW at the total minimum offer price
-          o_MWToMove(tp,trdr,o,trdBlk) $ Offeradj(o) =  TotMWMoved(tp,trdr) * PropOfferMinMaxPB(tp,trdr,o,trdBlk);
+        o_MWToMove(tp,trdr,o,trdBlk) $ o_adj(o) =  TotMWMoved(tp,trdr) * PropOfferMinMaxPB(tp,trdr,o,trdBlk);
 
-*+++++++++++++++++++++++++++++++++++++++++++++++++Update with the FK allocation 	
+*       Update with the FK allocation 	
 
-		  tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOffer') $ (Offeradj(o) 
-																									 and o_MWToMove(tp,trdr,o,trdBlk) 
-																									 ) = max(0,(tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOffer') - o_MWToMove(tp,trdr,o,trdBlk)));
+		tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOffer') $ (o_adj(o) and o_MWToMove(tp,trdr,o,trdBlk)) = max(0,(tpEnergyOffer_temp(tp,o,trdBlk,'i_GenerationMWOffer') - o_MWToMove(tp,trdr,o,trdBlk)));
+        tpEnergyOffer_temp(tp,o,'t20','i_GenerationMWOfferPrice') $ (o_adj(o) and sum(trdBlk, o_MWToMove(tp,trdr,o,trdBlk))) = TargetPrice;
+        tpEnergyOffer_temp(tp,o,'t20','i_GenerationMWOffer') $ (o_adj(o) and sum(trdBlk, o_MWToMove(tp,trdr,o,trdBlk))) = tpEnergyOffer_temp(tp,o,'t20','i_GenerationMWOffer') + sum(trdBlk, o_MWToMove(tp,trdr,o,trdBlk));
+        RemainMWToMove(tp,trdr) = RemainMWToMove(tp,trdr) - TotMWMoved(tp,trdr);
+        trdrMWMoved(tp,trdr,ild) = trdrMWMoved(tp,trdr,ild) + sum((o,trdBlk) $ (o_adj(o) and trdrOfferIldMap(tp,trdr,o,ild)), o_MWToMove(tp,trdr,o,trdBlk));
+        LoopIteration = LoopIteration + 1;
 
-          tpEnergyOffer_temp(tp,o,'t20','i_GenerationMWOfferPrice') $ (Offeradj(o) 
-																								   and sum(trdBlk, o_MWToMove(tp,trdr,o,trdBlk))
-																								   ) = TargetPrice;
-
-          tpEnergyOffer_temp(tp,o,'t20','i_GenerationMWOffer') $ (Offeradj(o) 
-																							  and sum(trdBlk, o_MWToMove(tp,trdr,o,trdBlk))
-																							  ) = tpEnergyOffer_temp(tp,o,'t20','i_GenerationMWOffer') + sum(trdBlk, o_MWToMove(tp,trdr,o,trdBlk));
-
-         RemainMWToMove(tp,trdr) = RemainMWToMove(tp,trdr) - TotMWMoved(tp,trdr);
-	 
-         trdrMWMoved(tp,trdr,ild) = trdrMWMoved(tp,trdr,ild) + sum((o,trdBlk) $ (Offeradj(o) and trdrOfferIldMap(tp,trdr,o,ild)), o_MWToMove(tp,trdr,o,trdBlk));
-
-         LoopIteration = LoopIteration + 1;
-
-*display RemainMWToMove, trdrMWMoved;
-
-*End while
+*       Display RemainMWToMove, trdrMWMoved;
+*       End while
      );
 
-*End loop
+*       End loop
 );
 
-*RDN - Update the energy offer if the TradeOfferadj flag is set
-tpEnergyOffer(tp,o,trdBlk,NRGofrCmpnt) $ (Offeradj(o) and sum(trdrName, trdrOfferadj(trdrName))) = tpEnergyOffer_temp(tp,o,trdBlk,NRGofrCmpnt);
-
+*RDN - Update the energy offer if the Tradeo_adj flag is set
+i_TradePeriodEnergyOffer(tp,o,trdBlk,NRGofrCmpnt) $ (o_adj(o) and sum(trdrName, trdro_adj(trdrName))) = tpEnergyOffer_temp(tp,o,trdBlk,NRGofrCmpnt);
 
 *Clear the temp energy offer file
 option clear = tpEnergyOffer_temp;
 
-
 );
 
-*execute_unload 'RevisedOffer.gdx', tpEnergyOffer;
-
+*execute_unload 'RevisedOffer.gdx', i_TradePeriodEnergyOffer;
