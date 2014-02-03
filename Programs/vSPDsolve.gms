@@ -4014,13 +4014,9 @@ if( (FTRflag = 0),
         );
 
 *       Pivot analysis
-        if(%PivotAnalysis%==1,
-            $include "%ProgramPath%..\Override\Pivot\vSPDPivotGDXout.inc"
-            );
+$if %PivotAnalysis%==1 $include "%ProgramPath%..\Override\Pivot\vSPDPivotGDXout.inc"
 *       Residual demand analysis
-        if(%PivotAnalysis%==-1,
-            $include "%ProgramPath%..\Override\IRDE\vSPDResidualDemandGDXout.inc"
-            );
+$if %PivotAnalysis%==-1 $include "%ProgramPath%..\Override\IRDE\vSPDResidualDemandGDXout.inc"
 
     );
 

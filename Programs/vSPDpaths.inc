@@ -1,7 +1,7 @@
 $inlinecom ## ##
 $eolcom !
 
-$setglobal  runName            DaveTest
+$setglobal  runName            BASE
 
 $setglobal  programPath       "%system.fp%"
 $setglobal  inputPath         "%system.fp%..\Input\"

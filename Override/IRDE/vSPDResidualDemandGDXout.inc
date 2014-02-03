@@ -8,7 +8,7 @@ display o_QWOP;
 
 *Write the cleared generation by trade block
 if(BaseSolve = 1,
-  execute_unload '%ProgramPath%IRDE\basePQ\%VSPDInputData%_basePQ_TP.gdx', i_TradeBlock, o_OfferTradeBlockEnergy_TP, o_BaseNodePrice_TP, o_TradePeriodBaseEnergyOffer;
+  execute_unload '%OutputPath%\basePQ\%VSPDInputData%_basePQ_TP.gdx', i_TradeBlock, o_OfferTradeBlockEnergy_TP, o_BaseNodePrice_TP, o_TradePeriodBaseEnergyOffer;
 );
 
 
