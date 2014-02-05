@@ -1,7 +1,7 @@
 $inlinecom ## ##
 $eolcom !
 
-$setglobal  runName            BASE
+$setglobal  runName            CTCT_NI
 
 $setglobal  programPath       "%system.fp%"
 $setglobal  inputPath         "%system.fp%..\Input\"

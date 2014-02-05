@@ -745,6 +745,18 @@ if( opMode = -1,
 * End of audit mode reporting loop
 ) ;
 
+*+++++++++++++++++++++++++++++Pivot analysis++++++++++++++++++++++++++++++++++++      
+                                                                                      
+$if %PivotAnalysis%==1 $include "%ovrdPath%Pivot\vSPDPivotReportCreate.inc"           
+                                                                                      
+*+++++++++++++++++++++++++++++Pivot analysis++++++++++++++++++++++++++++++++++++      
+                                                                                      
+                                                                                      
+*+++++++++++++++++++++++++++++Residual demand analysis++++++++++++++++++++++++++      
+                                                                                      
+$if %PivotAnalysis%==-1 $include "%ovrdPath%IRDE\vSPDResidualDemandReportCreate.inc"  
+                                                                                      
+*+++++++++++++++++++++++++++++Residual demand analysis++++++++++++++++++++++++++      
 
 * Go to the next input file
 $ label nextInput

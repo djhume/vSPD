@@ -163,7 +163,7 @@ if( (FTRflag = 0),
       put_utility temp 'exec' / 'gams runvSPDreport';
 
 *     Remove the temporary output GDX files
-      put_utility temp 'shell' / 'del "%outputPath%%runName%\runNum'runNum:0:0'_*.gdx"' ;
+*      put_utility temp 'shell' / 'del "%outputPath%%runName%\runNum'runNum:0:0'_*.gdx"' ;
 
 *     Increment the run number before going around loop again
       runNum = runNum + 1 ;
@@ -207,7 +207,7 @@ elseif (FTRflag = 1),
 * Clean up
 *=====================================================================================
 $label cleanUp
-execute 'del "*.lst"' ;
+*execute 'del "*.lst"' ;
 execute 'del "*.~gm"' ;
 execute 'del "*.lxi"' ;
 execute 'del "*.log"' ;

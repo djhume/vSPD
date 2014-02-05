@@ -148,3 +148,28 @@ if(opMode = -1,
   put objResults_Audit 'DateTime', 'Objective Function' ;
 
 ) ;
+
+*+++++++++++++++++++++++++++++Pivot analysis++++++++++++++++++++++++++++++++++++                         
+FILES                                                                                                    
+IslandPivotResults_TP        / "%OutputPath%%runName%\%runName%_IslandPivotResults_TP.csv" /             
+;                                                                                                        
+                                                                                                         
+IslandPivotResults_TP.pc = 5;        IslandPivotResults_TP.lw = 0;       IslandPivotResults_TP.pw = 9999;
+                                                                                                         
+*Pivot analysis                                                                                          
+$if %PivotAnalysis%==1 $include "%ovrdPath%Pivot\vSPDPivotReportSetup.inc"                            
+                                                                                                         
+*+++++++++++++++++++++++++++++Pivot analysis++++++++++++++++++++++++++++++++++++                         
+                                                                                                         
+*+++++++++++++++++++++++++++++Residual demand analysis++++++++++++++++++++++++++                         
+FILES                                                                                                    
+IldRDAResults_TP        / "%OutputPath%%runName%\%runName%_IldResDemandResults_TP.csv" /           
+;                                                                                                        
+                                                                                                         
+IldRDAResults_TP.pc = 5;        IldRDAResults_TP.lw = 0;       IldRDAResults_TP.pw = 9999;      
+                                                                                                         
+*Residual demand analysis                                                                                
+$if %PivotAnalysis%==-1 $include "%ovrdPath%IRDE\vSPDResidualDemandReportSetup.inc"                   
+                                                                                                         
+*+++++++++++++++++++++++++++++Residual demand analysis++++++++++++++++++++++++++                         
+

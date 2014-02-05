@@ -187,7 +187,7 @@ alias(*,dim1);
 *=====================================================================================
 Scalars
 
-BaseSolve          'Base solve, or offer adjustment solve flag, 0 = base, 1 = adj'                 /1/
+BaseSolve          'Base solve, or offer adjustment solve flag, 1 = base, 0 = adj'                 /0/
 Percentageadj      'Percentage adjustment if using'                                                /0/
 MWadj              'MW adjustment if using'                                                        /50/
 LoopIteration      'Loop iteration - loops required to work out adjustment - I think - DJH'        /1/
@@ -244,10 +244,10 @@ o_adj(o) = 0;
 *=====================================================================================
 *Load the base cleared offers and base nodal prices if it exists
 
-$if exist "%OutputPath%BASE\basePQ\%VSPDInputData%_basePQ_TP.gdx" $GDXIN "%OutputPath%BASE\basePQ\%VSPDInputData%_basePQ_TP.gdx"
-$If exist "%OutputPath%BASE\basePQ\%VSPDInputData%_basePQ_TP.gdx" $LOAD o_OfferTradeBlockEnergy_TP o_BaseNodePrice_TP o_TradePeriodBaseEnergyOffer
+$if exist "%OutputPath%basePQ\%VSPDInputData%_basePQ_TP.gdx" $GDXIN "%OutputPath%\basePQ\%VSPDInputData%_basePQ_TP.gdx"
+$If exist "%OutputPath%basePQ\%VSPDInputData%_basePQ_TP.gdx" $LOAD o_OfferTradeBlockEnergy_TP o_BaseNodePrice_TP o_TradePeriodBaseEnergyOffer
 *Close the gdx
-$If exist "%OutputPath%BASE\basePQ\%VSPDInputData%_basePQ_TP.gdx" $GDXIN
+$If exist "%OutputPath%basePQ\%VSPDInputData%_basePQ_TP.gdx" $GDXIN
 
 *Initialise if data exists
 o_OfferTradeBlockEnergy_TP(dt,o,trdBlk) $ BaseSolve = 0;
