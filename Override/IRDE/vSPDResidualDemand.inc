@@ -87,6 +87,12 @@ In vSPDSolve.gms: overrides begin ~line 500
 $offtext
 *=====================================================================================
 
+$onecho > con
+*++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+* IRDE Analysis override 
+*++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+$offecho
+
 *Allow empty data set declaration
 $onempty
 
@@ -148,13 +154,13 @@ o_IldBaseGWAP(dt,ild)                                 'Island base GWAP'
 prop_Qchange(dt,ild)                                  'Proportion Q change'
 o_IRDE_refprice(dt,ild)                               'Residual demand elasticity using reference price'
 o_IRDE_gwap(dt,ild)                                   'Residual demand elasticity using gwap price'
-o_OfferTradeBlockEnergy_TP(dt,o,trdBlk)               'Cleared gen by trade block'
+o_OfrTrdBlkNRG(dt,o,trdBlk)               'Cleared gen by trade block'
 o_ClearedBlockGen(*,dt,o,trdBlk)                      'Cleared block generation'
 o_adj(o)                                              'Offer to adjust'
 o_BaseNodePrice_TP(dt,n)                              'Nodal price from the base solve'
 o_IldScnrPQ(dt,ild)                                   'Scenario price x quantity'
 o_IldBasePQ(dt,ild)                                   'Base price x quantity'
-o_TradePeriodBaseEnergyOffer(dt,o,trdBlk,NRGofrCmpnt) ''
+o_tpbaseNRGOfr(dt,o,trdBlk,NRGofrCmpnt)               'Base energy offer'
 o_Qoffer(dt,ild)
 o_PQoffer(dt,ild)
 o_QWOP(dt,ild)
@@ -187,7 +193,7 @@ alias(*,dim1);
 *=====================================================================================
 Scalars
 
-BaseSolve          'Base solve, or offer adjustment solve flag, 1 = base, 0 = adj'                 /0/
+BaseSolve          'Base solve, or offer adjustment solve flag, 1 = base, 0 = adj'                 /1/
 Percentageadj      'Percentage adjustment if using'                                                /0/
 MWadj              'MW adjustment if using'                                                        /50/
 LoopIteration      'Loop iteration - loops required to work out adjustment - I think - DJH'        /1/
@@ -243,16 +249,15 @@ o_adj(o) = 0;
 
 *=====================================================================================
 *Load the base cleared offers and base nodal prices if it exists
-
 $if exist "%OutputPath%basePQ\%VSPDInputData%_basePQ_TP.gdx" $GDXIN "%OutputPath%\basePQ\%VSPDInputData%_basePQ_TP.gdx"
-$If exist "%OutputPath%basePQ\%VSPDInputData%_basePQ_TP.gdx" $LOAD o_OfferTradeBlockEnergy_TP o_BaseNodePrice_TP o_TradePeriodBaseEnergyOffer
+$If exist "%OutputPath%basePQ\%VSPDInputData%_basePQ_TP.gdx" $LOAD o_OfrTrdBlkNRG o_BaseNodePrice_TP o_tpbaseNRGOfr
 *Close the gdx
 $If exist "%OutputPath%basePQ\%VSPDInputData%_basePQ_TP.gdx" $GDXIN
 
 *Initialise if data exists
-o_OfferTradeBlockEnergy_TP(dt,o,trdBlk) $ BaseSolve = 0;
+o_OfrTrdBlkNRG(dt,o,trdBlk) $ BaseSolve = 0;
 o_BaseNodePrice_TP(dt,n) $ BaseSolve = 0;
-o_TradePeriodBaseEnergyOffer(dt,o,trdBlk,NRGofrCmpnt) $ BaseSolve = 0;
+o_tpbaseNRGOfr(dt,o,trdBlk,NRGofrCmpnt) $ BaseSolve = 0;
 
 o_IldAllGen(dt,ild) $ BaseSolve = 0;
 o_IldPosLoad(dt,ild) $ BaseSolve = 0;
@@ -374,7 +379,7 @@ i_TradePeriodEnergyOffer(tp,o,trdBlk,'i_GenerationMWOffer')
     $ (sum((ild,trdr,trdrName) $ (trdro_adj(trdrName) and Ildadj(ild) and
             trdrOfferIldMap(tp,trdr,o,ild) and trdrNameMap(trdr,trdrName) and
             i_TradePeriodOfferTrader(tp,o,trdr)), 1)) = sum(dt $ i_dateTimeTradePeriodMap(dt,tp),
-                                               o_OfferTradeBlockEnergy_TP(dt,o,trdBlk));
+                                               o_OfrTrdBlkNRG(dt,o,trdBlk));
 
 tpEnergyOffer_temp(tp,o,trdBlk,NRGofrCmpnt) = i_TradePeriodEnergyOffer(tp,o,trdBlk,NRGofrCmpnt);
 tpEnergyOffer_orig(tp,o,trdBlk,NRGofrCmpnt) = i_TradePeriodEnergyOffer(tp,o,trdBlk,NRGofrCmpnt);

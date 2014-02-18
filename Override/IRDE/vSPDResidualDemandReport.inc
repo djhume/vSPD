@@ -1,120 +1,76 @@
 *RDN -Residual supply analysis - Calculate benefit by node depending on generator, load or negative load node
 
-       o_NodeGenCost_TP(i_DateTime,i_Node) $ (Node(CurrentTradePeriod,i_Node) and (o_NodeGeneration_TP(i_DateTime,i_Node) > 0)) = (i_TradingPeriodLength/60)*sum((i_Offer,i_TradeBlock) $ (OfferNode(CurrentTradePeriod,i_Offer,i_Node) and ValidGenerationOfferBlock(CurrentTradePeriod,i_Offer,i_TradeBlock)), GENERATIONBLOCK.l(CurrentTradePeriod,i_Offer,i_TradeBlock) * GenerationOfferPrice(CurrentTradePeriod,i_Offer,i_TradeBlock));
+       o_NodeGenCost_TP(dt,n) $ (Node(currTP,n) and (o_NodeGeneration_TP(dt,n) > 0)) =
+           (i_TradingPeriodLength/60)*sum((o,trdBlk) $ (OfferNode(currTP,o,n) and ValidGenerationOfferBlock(currTP,o,trdBlk)), GENERATIONBLOCK.l(currTP,o,trdBlk) * GenerationOfferPrice(currTP,o,trdBlk));
 
 
 
 *RDN - Residual demand analysis
-      o_IslandPosLoad_TP(i_DateTime,i_Island) = sum(i_Bus $ (BusIsland(CurrentTradePeriod,i_Bus,i_Island) and (BusLoad(CurrentTradePeriod,i_Bus)>0)), BusLoad(CurrentTradePeriod,i_Bus));
-      o_IslandNegLoad_TP(i_DateTime,i_Island) = sum(i_Bus $ (BusIsland(CurrentTradePeriod,i_Bus,i_Island) and (BusLoad(CurrentTradePeriod,i_Bus)<0)), -BusLoad(CurrentTradePeriod,i_Bus));
+      o_IldPosLoad_TP(dt,ild) = sum(b $ (BusIld(currTP,b,ild) and (BusLoad(currTP,b)>0)), BusLoad(currTP,b));
+      o_IldNegLoad_TP(dt,ild) = sum(b $ (BusIld(currTP,b,ild) and (BusLoad(currTP,b)<0)), -BusLoad(currTP,b));
 
-      o_TraderName(i_DateTime,i_TraderName) = yes;
-
-      o_TraderIslandSuppliedMW(i_DateTime,i_TraderName,i_Island) = sum((i_Offer,i_Trader) $ (TraderNameMap(i_Trader,i_TraderName) and TraderOfferIslandMap(CurrentTradePeriod,i_Trader,i_Offer,i_Island)), GENERATION.l(CurrentTradePeriod,i_Offer));
-
-      o_TraderIslandGenRevenenue(i_DateTime,i_TraderName,i_Island) = sum((i_Trader,i_Node,i_Offer) $ (TraderNameMap(i_Trader,i_TraderName) and TraderOfferIslandMap(CurrentTradePeriod,i_Trader,i_Offer,i_Island) and OfferNode(CurrentTradePeriod,i_Offer,i_Node)), o_NodeRevenue_TP(i_DateTime,i_Node));
-
-      o_TraderIslandGenCost(i_DateTime,i_TraderName,i_Island) = sum((i_Trader,i_Node,i_Offer) $ (TraderNameMap(i_Trader,i_TraderName) and TraderOfferIslandMap(CurrentTradePeriod,i_Trader,i_Offer,i_Island) and OfferNode(CurrentTradePeriod,i_Offer,i_Node)), o_NodeGenCost_TP(i_DateTime,i_Node));
-
-      o_TraderIslandOfferedMW(i_DateTime,i_TraderName,i_Island) = sum(i_Trader $ TraderNameMap(i_Trader,i_TraderName), TraderIslandOfferedMW(CurrentTradePeriod,i_Island,i_Trader));
-
-      o_TraderIslandOfferedPQ(i_DateTime,i_TraderName,i_Island) = sum((i_Trader,i_Offer,i_TradeBlock) $ (TraderNameMap(i_Trader,i_TraderName) and TraderOfferIslandMap(CurrentTradePeriod,i_Trader,i_Offer,i_Island)), i_TradePeriodEnergyOffer(CurrentTradePeriod,i_Offer,i_TradeBlock,'i_GenerationMWOffer')*i_TradePeriodEnergyOffer(CurrentTradePeriod,i_Offer,i_TradeBlock,'i_GenerationMWOfferPrice'));
-
-      o_TraderQMoved(i_DateTime,i_TraderName,i_Island) = sum(i_Trader $ TraderNameMap(i_Trader,i_TraderName), TraderMWMoved(CurrentTradePeriod,i_Trader,i_Island));
-
-      o_EnergyOffer_diff(i_DateTime,i_Offer,i_TradeBlock,i_EnergyOfferComponent) = i_TradePeriodEnergyOffer(CurrentTradePeriod,i_Offer,i_TradeBlock,i_EnergyOfferComponent) - i_TradePeriodEnergyOffer_orig(CurrentTradePeriod,i_Offer,i_TradeBlock,i_EnergyOfferComponent);
+      o_trdrName(dt,trdrName) = yes;
+      o_trdrIldSuppliedMW(dt,trdrName,ild) = sum((o,trdr) $ (trdrNameMap(trdr,trdrName) and trdrOfferIldMap(currTP,trdr,o,ild)), GENERATION.l(currTP,o));
+      o_trdrIldGenRevenenue(dt,trdrName,ild) = sum((trdr,n,o) $ (trdrNameMap(trdr,trdrName) and trdrOfferIldMap(currTP,trdr,o,ild) and OfferNode(currTP,o,n)), o_NodeRevenue_TP(dt,n));
+      o_trdrIldGenCost(dt,trdrName,ild) = sum((trdr,n,o) $ (trdrNameMap(trdr,trdrName) and trdrOfferIldMap(currTP,trdr,o,ild) and OfferNode(currTP,o,n)), o_NodeGenCost_TP(dt,n));
+      o_trdrIldOfferedMW(dt,trdrName,ild) = sum(trdr $ trdrNameMap(trdr,trdrName), trdrIldOfferedMW(currTP,ild,trdr));
+      o_trdrIldOfferedPQ(dt,trdrName,ild) = sum((trdr,o,trdBlk) $ (trdrNameMap(trdr,trdrName) and trdrOfferIldMap(currTP,trdr,o,ild)), i_TradePeriodEnergyOffer(currTP,o,trdBlk,'i_GenerationMWOffer')*i_TradePeriodEnergyOffer(currTP,o,trdBlk,'i_GenerationMWOfferPrice'));
+      o_trdrQMoved(dt,trdrName,ild) = sum(trdr $ trdrNameMap(trdr,trdrName), trdrMWMoved(currTP,trdr,ild));
+      o_EnergyOffer_diff(dt,o,trdBlk,NRGofrCmpnt) = i_TradePeriodEnergyOffer(currTP,o,trdBlk,NRGofrCmpnt) - i_TradePeriodEnergyOffer_orig(currTP,o,trdBlk,NRGofrCmpnt);
 
 *RDN - Output of offers and price
 
-
 if (BaseSolve = 0,
-
-      o_IslandScenarioMW(i_DateTime,i_Island) = 0;
-      o_IslandScenarioPrice(i_DateTime,i_Island) = 0;
-      o_IslandScenarioPQ(i_DateTime,i_Island) = 0;
-
+      o_IldScnrMW(dt,ild) = 0;
+      o_IldScnrPrice(dt,ild) = 0;
+      o_IldScnrPQ(dt,ild) = 0;
 
 *Base
-      o_IslandBaseMW(i_DateTime,i_Island) = sum((i_Offer,i_Trader,i_TradeBlock) $ (OfferAdjustment(i_Offer) and TraderOfferIslandMap(CurrentTradePeriod,i_Trader,i_Offer,i_Island)), o_OfferTradeBlockEnergy_TP(i_DateTime,i_Offer,i_TradeBlock));
+      o_IldBaseMW(dt,ild) = sum((o,trdr,trdBlk) $ (OfferAdjustment(o) and trdrOfferIldMap(currTP,trdr,o,ild)), o_OfrTrdBlkNRG(dt,o,trdBlk));
+      o_IldBasePQ(dt,ild) = sum((trdr,o,n,trdBlk) $ (OfferAdjustment(o) and OfferNode(currTP,o,n) and trdrOfferIldMap(currTP,trdr,o,ild)), o_OfrTrdBlkNRG(dt,o,trdBlk) * o_BaseNodePrice_TP(dt,n));
+      o_IldBasePrice(dt,ild) = sum(n $ (ReferenceNode(currTP,n) and NodeIld(currTP,n,ild)), o_BaseNodePrice_TP(dt,n));
 
-*      o_IslandBasePQ(i_DateTime,i_Island) = sum((i_Offer,i_Bus,i_Node,i_TradeBlock) $ (OfferAdjustment(i_Offer) and OfferNode(CurrentTradePeriod,i_Offer,i_Node) and NodeBus(CurrentTradePeriod,i_Node,i_Bus) and BusIsland*(CurrentTradePeriod,i_Bus,i_Island)), NodeBusAllocationFactor(CurrentTradePeriod,i_Node,i_Bus) * o_OfferTradeBlockEnergy_TP(i_DateTime,i_Offer,i_TradeBlock) * BusPrice(CurrentTradePeriod,i_Bus));
-
-
-      o_IslandBasePQ(i_DateTime,i_Island) = sum((i_Trader,i_Offer,i_Node,i_TradeBlock) $ (OfferAdjustment(i_Offer) and OfferNode(CurrentTradePeriod,i_Offer,i_Node) and TraderOfferIslandMap(CurrentTradePeriod,i_Trader,i_Offer,i_Island)), o_OfferTradeBlockEnergy_TP(i_DateTime,i_Offer,i_TradeBlock) * o_BaseNodePrice_TP(i_DateTime,i_Node));
-
-
-      o_IslandBasePrice(i_DateTime,i_Island) = sum(i_Node $ (ReferenceNode(CurrentTradePeriod,i_Node) and NodeIsland(CurrentTradePeriod,i_Node,i_Island)), o_BaseNodePrice_TP(i_DateTime,i_Node));
-
-
-*Scenario
-      o_IslandScenarioMW(i_DateTime,i_Island) = sum((i_Offer,i_Trader) $ (OfferAdjustment(i_Offer) and TraderOfferIslandMap(CurrentTradePeriod,i_Trader,i_Offer,i_Island)), GENERATION.l(CurrentTradePeriod,i_Offer));
-
-      o_IslandScenarioPrice(i_DateTime,i_Island) = o_IslandRefPrice_TP(i_DateTime,i_Island);
-
-      o_IslandScenarioPQ(i_DateTime,i_Island) = sum((i_Offer,i_Bus,i_Node) $ (OfferAdjustment(i_Offer) and OfferNode(CurrentTradePeriod,i_Offer,i_Node) and NodeBus(CurrentTradePeriod,i_Node,i_Bus) and BusIsland(CurrentTradePeriod,i_Bus,i_Island)), NodeBusAllocationFactor(CurrentTradePeriod,i_Node,i_Bus) * GENERATION.l(CurrentTradePeriod,i_Offer) * BusPrice(CurrentTradePeriod,i_Bus));
-
-
+*Scnr
+      o_IldScnrMW(dt,ild) = sum((o,trdr) $ (OfferAdjustment(o) and trdrOfferIldMap(currTP,trdr,o,ild)), GENERATION.l(currTP,o));
+      o_IldScnrPrice(dt,ild) = o_IldRefPrice_TP(dt,ild);
+      o_IldScnrPQ(dt,ild) = sum((o,b,n) $ (OfferAdjustment(o) and OfferNode(currTP,o,n) and NodeBus(currTP,n,b) and BusIld(currTP,b,ild)), NodeBusAllocationFactor(currTP,n,b) * GENERATION.l(currTP,o) * BusPrice(currTP,b));
 
 *Report gwap and lwap
-      o_IslandAllGen(i_DateTime,i_Island) = sum(i_Bus $ BusIsland(CurrentTradePeriod,i_Bus,i_Island), BusGeneration(CurrentTradePeriod,i_Bus))
-                                             + sum(i_Bus $ [BusIsland(CurrentTradePeriod,i_Bus,i_Island) and (BusLoad(CurrentTradePeriod,i_Bus)<0)], abs(BusLoad(CurrentTradePeriod,i_Bus)));
+      o_IldAllGen(dt,ild) = sum(b $ BusIld(currTP,b,ild), BusGeneration(currTP,b))
+                                             + sum(b $ [BusIld(currTP,b,ild) and (BusLoad(currTP,b)<0)], abs(BusLoad(currTP,b)));
 
-
-      o_IslandPosLoad(i_DateTime,i_Island) = sum(i_Bus $ [BusIsland(CurrentTradePeriod,i_Bus,i_Island) and (BusLoad(CurrentTradePeriod,i_Bus)>0)], BusLoad(CurrentTradePeriod,i_Bus));
-
-
-*      o_IslandScenarioGWAP(i_DateTime,i_Island) $ (o_IslandAllGen(i_DateTime,i_Island) and i_TradingPeriodLength) = [(60/i_TradingPeriodLength)*(o_IslandLoadRevenue_TP(i_DateTime,i_Island)+o_IslandEnergyRevenue_TP**(i_DateTime,i_Island))]/o_IslandAllGen(i_DateTime,i_Island);
-
-      o_IslandScenarioGWAP(i_DateTime,i_Island) $ (o_IslandScenarioMW(i_DateTime,i_Island) and i_TradingPeriodLength) = o_IslandScenarioPQ(i_DateTime,i_Island)/o_IslandScenarioMW(i_DateTime,i_Island);
-
-
-      o_IslandBaseGWAP(i_DateTime,i_Island) $ (o_IslandBaseMW(i_DateTime,i_Island) and i_TradingPeriodLength) = o_IslandBasePQ(i_DateTime,i_Island)/o_IslandBaseMW(i_DateTime,i_Island);
-
+      o_IldPosLoad(dt,ild) = sum(b $ [BusIld(currTP,b,ild) and (BusLoad(currTP,b)>0)], BusLoad(currTP,b));
+      o_IldScnrGWAP(dt,ild) $ (o_IldScnrMW(dt,ild) and i_TradingPeriodLength) = o_IldScnrPQ(dt,ild)/o_IldScnrMW(dt,ild);
+      o_IldBaseGWAP(dt,ild) $ (o_IldBaseMW(dt,ild) and i_TradingPeriodLength) = o_IldBasePQ(dt,ild)/o_IldBaseMW(dt,ild);
 
 *Calculate the IRDE
 
-      prop_Qchange(i_DateTime,i_Island) $ o_IslandBaseMW(i_DateTime,i_Island) = (o_IslandScenarioMW(i_DateTime,i_Island) - o_IslandBaseMW(i_DateTime,i_Island)) / o_IslandBaseMW(i_DateTime,i_Island);
-
-      o_IRDE_refprice(i_DateTime,i_Island) $ prop_Qchange(i_DateTime,i_Island) = -[(o_IslandScenarioPrice(i_DateTime,i_Island) - o_IslandBasePrice(i_DateTime,i_Island))/o_IslandBasePrice(i_DateTime,i_Island)] / prop_Qchange(i_DateTime,i_Island);
-
-      o_IRDE_gwap(i_DateTime,i_Island) $ prop_Qchange(i_DateTime,i_Island) = -[(o_IslandScenarioGWAP(i_DateTime,i_Island) - o_IslandBaseGWAP(i_DateTime,i_Island))/o_IslandBaseGWAP(i_DateTime,i_Island)] / prop_Qchange(i_DateTime,i_Island);
-
-
-      o_Qoffer(i_DateTime,i_Island) = sum((i_Offer,i_Trader,i_TradeBlock) $ (OfferAdjustment(i_Offer) and TraderOfferIslandMap(CurrentTradePeriod,i_Trader,i_Offer,i_Island)), o_TradePeriodBaseEnergyOffer(i_DateTime,i_Offer,i_TradeBlock,'i_GenerationMWOffer'));
-
-
-      o_PQoffer(i_DateTime,i_Island) = sum((i_Offer,i_Trader,i_TradeBlock) $ (OfferAdjustment(i_Offer) and TraderOfferIslandMap(CurrentTradePeriod,i_Trader,i_Offer,i_Island)), o_TradePeriodBaseEnergyOffer(i_DateTime,i_Offer,i_TradeBlock,'i_GenerationMWOfferPrice') * o_TradePeriodBaseEnergyOffer(i_DateTime,i_Offer,i_TradeBlock,'i_GenerationMWOffer'));
-
-
-      o_QWOP(i_DateTime,i_Island) $ o_Qoffer(i_DateTime,i_Island)  = o_PQoffer(i_DateTime,i_Island) / o_Qoffer(i_DateTime,i_Island);
-
-
-      o_PQoffercleared(i_DateTime,i_Island) = sum((i_Offer,i_Trader,i_TradeBlock) $ (OfferAdjustment(i_Offer) and TraderOfferIslandMap(CurrentTradePeriod,i_Trader,i_Offer,i_Island)), o_TradePeriodBaseEnergyOffer(i_DateTime,i_Offer,i_TradeBlock,'i_GenerationMWOfferPrice') * o_OfferTradeBlockEnergy_TP(i_DateTime,i_Offer,i_TradeBlock));
-
-      o_QWOPcleared(i_DateTime,i_Island) $ o_IslandBaseMW(i_DateTime,i_Island) = o_PQoffercleared(i_DateTime,i_Island) / o_IslandBaseMW(i_DateTime,i_Island);
-
-      o_maxPcleared(i_DateTime,i_Island) $ sum((i_Offer,i_Trader) $ (OfferAdjustment(i_Offer) and TraderOfferIslandMap(CurrentTradePeriod,i_Trader,i_Offer,i_Island)),1) 
- = smax((i_Offer,i_Trader,i_TradeBlock) $ (OfferAdjustment(i_Offer) and TraderOfferIslandMap (CurrentTradePeriod,i_Trader,i_Offer,i_Island) and o_OfferTradeBlockEnergy_TP(i_DateTime,i_Offer,i_TradeBlock)), o_TradePeriodBaseEnergyOffer (i_DateTime,i_Offer,i_TradeBlock,'i_GenerationMWOfferPrice'));
+      prop_Qchange(dt,ild) $ o_IldBaseMW(dt,ild) = (o_IldScnrMW(dt,ild) - o_IldBaseMW(dt,ild)) / o_IldBaseMW(dt,ild);
+      o_IRDE_refprice(dt,ild) $ prop_Qchange(dt,ild) = -[(o_IldScnrPrice(dt,ild) - o_IldBasePrice(dt,ild))/o_IldBasePrice(dt,ild)] / prop_Qchange(dt,ild);
+      o_IRDE_gwap(dt,ild) $ prop_Qchange(dt,ild) = -[(o_IldScnrGWAP(dt,ild) - o_IldBaseGWAP(dt,ild))/o_IldBaseGWAP(dt,ild)] / prop_Qchange(dt,ild);
+      o_Qoffer(dt,ild) = sum((o,trdr,trdBlk) $ (OfferAdjustment(o) and trdrOfferIldMap(currTP,trdr,o,ild)), o_tpbaseNRGOfr(dt,o,trdBlk,'i_GenerationMWOffer'));
+      o_PQoffer(dt,ild) = sum((o,trdr,trdBlk) $ (OfferAdjustment(o) and trdrOfferIldMap(currTP,trdr,o,ild)), o_tpbaseNRGOfr(dt,o,trdBlk,'i_GenerationMWOfferPrice') * o_tpbaseNRGOfr(dt,o,trdBlk,'i_GenerationMWOffer'));
+      o_QWOP(dt,ild) $ o_Qoffer(dt,ild)  = o_PQoffer(dt,ild) / o_Qoffer(dt,ild);
+      o_PQoffercleared(dt,ild) = sum((o,trdr,trdBlk) $ (OfferAdjustment(o) and trdrOfferIldMap(currTP,trdr,o,ild)), o_tpbaseNRGOfr(dt,o,trdBlk,'i_GenerationMWOfferPrice') * o_OfrTrdBlkNRG(dt,o,trdBlk));
+      o_QWOPcleared(dt,ild) $ o_IldBaseMW(dt,ild) = o_PQoffercleared(dt,ild) / o_IldBaseMW(dt,ild);
+      o_maxPcleared(dt,ild) $ sum((o,trdr) $ (OfferAdjustment(o) and trdrOfferIldMap(currTP,trdr,o,ild)),1) 
+ = smax((o,trdr,trdBlk) $ (OfferAdjustment(o) and trdrOfferIldMap (currTP,trdr,o,ild) and o_OfrTrdBlkNRG(dt,o,trdBlk)), o_tpbaseNRGOfr (dt,o,trdBlk,'i_GenerationMWOfferPrice'));
 
 else
 
-
 *RDN - Write out the cleared offers and price and offers
-      o_OfferTradeBlockEnergy_TP(i_DateTime,i_Offer,i_TradeBlock) = GENERATIONBLOCK.l(CurrentTradePeriod,i_Offer,i_TradeBlock);
-      o_BaseNodePrice_TP(i_DateTime,i_Node) = o_NodePrice_TP(i_DateTime,i_Node);
-
-      o_TradePeriodBaseEnergyOffer(i_DateTime,i_Offer,i_TradeBlock,i_EnergyOfferComponent) = i_TradePeriodEnergyOffer(CurrentTradePeriod,i_Offer,i_TradeBlock,i_EnergyOfferComponent);
-
-      
-      o_IslandBaseMW(i_DateTime,i_Island) = 0;
-      o_IslandBasePrice(i_DateTime,i_Island) = 0;
-      o_IslandBasePQ(i_DateTime,i_Island) = 0;
-      o_QWOP(i_DateTime,i_Island) = 0;
-      o_Qoffer(i_DateTime,i_Island) = 0;
-      o_PQoffer(i_DateTime,i_Island) = 0;
-      o_PQoffercleared(i_DateTime,i_Island) = 0;
-      o_QWOPcleared(i_DateTime,i_Island) = 0;
-      o_maxPcleared(i_DateTime,i_Island) = 0;
+      o_OfrTrdBlkNRG(dt,o,trdBlk) = GENERATIONBLOCK.l(currTP,o,trdBlk);
+      o_BaseNodePrice_TP(dt,n) = o_NodePrice_TP(dt,n);
+      o_tpbaseNRGOfr(dt,o,trdBlk,NRGofrCmpnt) = i_TradePeriodEnergyOffer(currTP,o,trdBlk,NRGofrCmpnt);
+      o_IldBaseMW(dt,ild) = 0;
+      o_IldBasePrice(dt,ild) = 0;
+      o_IldBasePQ(dt,ild) = 0;
+      o_QWOP(dt,ild) = 0;
+      o_Qoffer(dt,ild) = 0;
+      o_PQoffer(dt,ild) = 0;
+      o_PQoffercleared(dt,ild) = 0;
+      o_QWOPcleared(dt,ild) = 0;
+      o_maxPcleared(dt,ild) = 0;
 
 );
 

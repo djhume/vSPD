@@ -13,7 +13,7 @@ execute_unload '%OutputPath%%runName%\RunNum%VSPDRunNum%_IslandOutputRDA_TP.gdx'
 *Write the cleared generation by trade block
 if(BaseSolve = 1,
   execute_unload '%OutputPath%basePQ\%VSPDInputData%_basePQ_TP.gdx', 
-       i_TradeBlock, o_OfferTradeBlockEnergy_TP, o_BaseNodePrice_TP, o_TradePeriodBaseEnergyOffer;
+       trdBlk, o_OfrTrdBlkNRG, o_BaseNodePrice_TP, o_tpbaseNRGOfr;
 );
 
 
